@@ -1,52 +1,48 @@
-#include <stdio.h>
+#include <msp430.h>
 #include <stdint.h>
-#include <unistd.h>
-
-/*
-bit 7 = A
-bit 6 = B
-bit 5 = select
-bit 4 = start
-bit 3 = up
-bit 2 = down
-bit 1 = left 
-bit 0 = right
-*/
-uint8_t
-read_gamepad()
-{
-	return 0;
-}
 
 const uint8_t digits[] = {
 	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f,
 	0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71
 };
 
-// in deciseconds
-uint16_t period;
-uint16_t jam;
-
-void
-update_display()
-{
-	printf("%06u    %06u\r", period, jam);
-	fflush(stdout);
-}
+// seconds/60
+volatile uint16_t jiffies = 0;
+unsigned int i = 0;
 
 int
-main(int argc, char *argv[])
+main(void)
 {
-	period = 30 * 600;
-	jam = 2 * 600;
+	WDTCTL = WDTPW + WDTHOLD;	// Disable Watchdog Timer
+	P1DIR |= BIT0 + BIT6;		// P1.0 output
+	P1OUT = (P1OUT & ~BIT6) | BIT0;
+	
+#if 1
+	CCTL0 |= CCIE;		// Trigger interrup on Timer A checkpoint
+	TACTL = TASSEL_2 + MC_1;		// Set timer A to SMCLCK, up mode
+	TACCR0 = 0x4444;
+	
+	__enable_interrupt();
+#endif
 	
 	for (;;) {
-		period -= 1;
-		jam -= 1;
-		
-		update_display();
-		usleep(100000);
+		i = (i + 1) % 1000;
+		if ((jiffies / 60) % 2) {
+			P1OUT &= ~BIT0;
+		} else {
+			P1OUT |= BIT0;
+		}
 	}
-	return 0;
 }
 
+// Timer A0 interrupt service routine
+__attribute__((interrupt(TIMER0_A0_VECTOR)))
+void timer_a(void)
+{
+	jiffies += 1;
+	if ((jiffies / 60) % 2) {
+		P1OUT |= BIT6;
+	} else {
+		P1OUT &= ~BIT6;
+	}
+}
