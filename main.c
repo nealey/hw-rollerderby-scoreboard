@@ -2,14 +2,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-const uint8_t digits[] = {
-	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f,
-	0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71
+// Number of shift registers in your scoreboard
+// If you want scores to go over 199, you need 8
+const int nsr = 6;
+
+const uint8_t seven_segment_digits[] = {
+#if 0
+	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71
+#else
+	0x7e, 0x48, 0x3d, 0x6d, 0x4b, 0x67, 0x77, 0x4c, 0x7f, 0x6f,
+#endif
 };
 
 // seconds/60
 volatile uint16_t jiffies = 0;
-unsigned int i = 0;
 
 #define MODE BIT0
 #define SIN BIT1
@@ -35,19 +41,36 @@ latch()
 }
 
 void
-write(uint16_t number)
+pulse()
+{
+	sclk(true);
+	sclk(false);
+}
+
+void
+write(uint8_t number)
 {
 	int i;
 	int j;
 	
 	// MSB first
-	for (i = 15; i >= 0; i -= 1) {
+	for (i = 7; i >= 0; i -= 1) {
 		sin(number & (1 << i));
 
 		for (j = 0; j < 12; j += 1) {
-			sclk(true);
-			sclk(false);
+			pulse();
 		}
+	}
+}
+
+void
+write_num(uint16_t number, int digits)
+{
+	int i;
+	
+	for (i = 0; i < digits; i += 1) {
+		write(seven_segment_digits[number % 10]);
+		number /= 10;
 	}
 }
 
@@ -61,52 +84,78 @@ blip()
 	}
 }
 
+/* Set up grayscale */
+void
+setup_gs()
+{
+	int i;
+	
+	for (i = 0; i < nsr; i += 1) {
+		write(0);
+	}
+	latch();
+}
+
+/*
+ * Set up dot correction.
+ * 
+ * We don't use dot correction so this is easy: set everything to full brightness.
+ */
+void
+setup_dc()
+{
+	int i;
+
+	mode(true);
+	sin(true);
+	for (i = 0; i < nsr * 96; i += 1) {
+		pulse();
+	}
+	latch();
+	mode(false);
+}
+
 int
 main(void)
 {
+	int gscount = 0;
+
 	WDTCTL = WDTPW + WDTHOLD;	// Disable Watchdog Timer
 	P1DIR |= MODE + SIN + SCLK + XLAT + BLANK + GSCLK + BIT6;		// P1 output bits
 
 	P1OUT = 0;
 		
-	// Set up the stupid DC crappo
-	mode(true);
-	sin(false);
-	for (i = 0; i < 96; i += 1) {
-		sclk(true);
-		sclk(false);
-	}
-	latch();
-	mode(false);
-		
-	// Zero out numbers
-	sin(false);
-	for (i = 0; i < 192; i += 1) {
-		sclk(true);
-		sclk(false);
-	}
-	latch();
-	
+	setup_gs();
+	setup_dc();
 
-#if 1
+	// Enable interrupts
 	CCTL0 |= CCIE;		// Trigger interrup on   A checkpoint
 	TACTL = TASSEL_2 + MC_1;		// Set timer A to SMCLCK, up mode
-	TACCR0 = 0x4444;
+	TACCR0 = 0x4444;	// Interrupt 60 times per second
 	
 	__enable_interrupt();
-#endif
 
 	// Now actually run
 	for (;;) {
-		if ((jiffies % 60) == 0) {
-			write(0xffff);
+		if ((jiffies % 6) == 0) {
+			write_num(jiffies / 6, 4);
 	
-			blank(true);
+			gsclk(false);
 			latch();
-			blank(false);
-		} else {
-			P1OUT ^= GSCLK;
+			gscount = 4096;
 		}
+		
+		if (gscount == 4096) {
+			// Pulse BLANK when grayscale clock has cycled 4096 times.
+			blank(true);
+			blank(false);
+			gscount = 0;
+		}
+
+		// Pulse the grayscale clock.
+		gsclk(true);
+		gsclk(false);
+		gscount += 1;
 	}
 }
 
