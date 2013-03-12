@@ -21,17 +21,17 @@ volatile uint16_t jiffies = 0;
 #define SIN BIT1
 #define SCLK BIT2
 #define XLAT BIT3
-#define BLANK BIT4
-#define GSCLK BIT5
 
 #define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
+
+
+// Connect GSCLK to SCLK
+// Connect BLANK to XLAT
 
 #define mode(on) bit(P1OUT, MODE, on)
 #define sin(on) bit(P1OUT, SIN, on)
 #define sclk(on) bit(P1OUT, SCLK, on)
 #define xlat(on) bit(P1OUT, XLAT, on)
-#define blank(on) bit(P1OUT, BLANK, on)
-#define gsclk(on) bit(P1OUT, GSCLK, on)
 
 void
 latch()
@@ -118,10 +118,8 @@ setup_dc()
 int
 main(void)
 {
-	int gscount = 0;
-
 	WDTCTL = WDTPW + WDTHOLD;	// Disable Watchdog Timer
-	P1DIR |= MODE + SIN + SCLK + XLAT + BLANK + GSCLK + BIT6;		// P1 output bits
+	P1DIR |= MODE + SIN + SCLK + XLAT + BIT6;		// P1 output bits
 
 	P1OUT = 0;
 		
@@ -140,22 +138,9 @@ main(void)
 		if ((jiffies % 6) == 0) {
 			write_num(jiffies / 6, 4);
 	
-			gsclk(false);
 			latch();
-			gscount = 4096;
+			pulse();
 		}
-		
-		if (gscount == 4096) {
-			// Pulse BLANK when grayscale clock has cycled 4096 times.
-			blank(true);
-			blank(false);
-			gscount = 0;
-		}
-
-		// Pulse the grayscale clock.
-		gsclk(true);
-		gsclk(false);
-		gscount += 1;
 	}
 }
 
