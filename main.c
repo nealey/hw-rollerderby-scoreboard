@@ -6,6 +6,30 @@
 // If you want scores to go over 199, you need 8
 const int nsr = 6;
 
+volatile bool tick = false; // Set high when clock ticks
+uint16_t time = 0; // Tenths of a second elapsed since boot
+
+// Clocks are in deciseconds
+uint16_t period_clock = 600 * 30;
+uint16_t jam_clock = 600 * 2;
+enum {
+	SETUP,
+	JAM,
+	LINEUP,
+	TIMEOUT
+} state = JAM;
+
+
+#define MODE BIT0
+#define SIN BIT1
+#define SCLK BIT2
+#define XLAT BIT4
+// Connect GSCLK to SCLK
+// Connect BLANK to XLAT
+// TRUST ME, THIS TOTALLY WORKS
+
+#define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
+
 const uint8_t seven_segment_digits[] = {
 #if 0
 	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71
@@ -13,20 +37,6 @@ const uint8_t seven_segment_digits[] = {
 	0x7e, 0x48, 0x3d, 0x6d, 0x4b, 0x67, 0x77, 0x4c, 0x7f, 0x6f,
 #endif
 };
-
-// seconds/60
-volatile uint16_t jiffies = 0;
-
-#define MODE BIT0
-#define SIN BIT1
-#define SCLK BIT2
-#define XLAT BIT3
-
-#define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
-
-
-// Connect GSCLK to SCLK
-// Connect BLANK to XLAT
 
 #define mode(on) bit(P1OUT, MODE, on)
 #define sin(on) bit(P1OUT, SIN, on)
@@ -115,11 +125,65 @@ setup_dc()
 	mode(false);
 }
 
+/*
+ * Update all the digits
+ */
+void
+draw()
+{
+	write_num(0, 2);  // Score B
+	
+	write_num(jam_clock % 600, 3);
+	write_num(jam_clock / 600, 1);
+	
+	// XXX: Do some kind of animation if period_clock < 200
+	write_num((period_clock / 10) % 60, 2);
+	write_num((period_clock / 10) / 60, 2);
+	
+	//write_num(0, 2);  // Score A
+
+	latch();
+	pulse();
+}
+
+/*
+ * Run logic for this decisecond
+ */
+void
+loop()
+{
+	if (jam_clock) {
+		jam_clock -= 1;
+	}
+	
+	if (period_clock) {
+		period_clock -= 1;
+	}
+	
+	if (P1IN & BIT3) {
+		switch (state) {
+		case JAM:
+			jam_clock = 300;
+			state = LINEUP;
+			break;
+		default:
+			jam_clock = 600 * 2;
+			state = JAM;
+			break;
+		}
+	}
+	
+	draw();
+}
+
 int
 main(void)
 {
+	int jiffies = 0;
+
 	WDTCTL = WDTPW + WDTHOLD;	// Disable Watchdog Timer
 	P1DIR |= MODE + SIN + SCLK + XLAT + BIT6;		// P1 output bits
+	P1DIR &= ~(BIT3);
 
 	P1OUT = 0;
 		
@@ -135,11 +199,18 @@ main(void)
 
 	// Now actually run
 	for (;;) {
-		if ((jiffies % 6) == 0) {
-			write_num(jiffies / 6, 4);
-	
-			latch();
-			pulse();
+		if (tick) {
+			tick = false;
+			jiffies += 1;
+			
+			if (jiffies == 6) {
+				jiffies = 0;
+				time += 1;
+			
+				loop();
+
+				P1OUT ^= BIT6;
+			}
 		}
 	}
 }
@@ -148,10 +219,5 @@ main(void)
 __attribute__((interrupt(TIMER0_A0_VECTOR)))
 void timer_a(void)
 {
-	jiffies += 1;
-	if ((jiffies / 60) % 2) {
-		P1OUT |= BIT6;
-	} else {
-		P1OUT &= ~BIT6;
-	}
+	tick = true;
 }
