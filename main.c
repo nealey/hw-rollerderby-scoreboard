@@ -1,5 +1,6 @@
 #include <msp430.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 // Number of shift registers in your scoreboard
@@ -12,16 +13,16 @@ uint16_t time = 0; // Tenths of a second elapsed since boot
 // Clocks are in deciseconds
 uint16_t score_a = 0;
 uint16_t score_b = 0;
-uint16_t period_clock = 600 * 30;
-uint16_t jam_clock = 600 * 2;
+int16_t period_clock = -600 * 30;
+int16_t jam_clock = -600 * 2;
 enum {
 	SETUP,
 	JAM,
 	LINEUP,
 	TIMEOUT
-} state = JAM;
+} state = SETUP;
 
-uint8_t controller = 0;
+uint8_t last_controller = 0;
 
 
 #define MODE BIT0
@@ -36,16 +37,23 @@ uint8_t controller = 0;
 #define NESLTCH BIT5
 #define NESSOUT BIT7
 
+
+// NES Controller buttons
+
+#define BTN_A BIT7
+#define BTN_B BIT6
+#define BTN_SELECT BIT5
+#define BTN_START BIT4
+#define BTN_UP BIT3
+#define BTN_DOWN BIT2
+#define BTN_LEFT BIT1
+#define BTN_RIGHT BIT0
+
+
 #define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
 
 const uint8_t seven_segment_digits[] = {
-#if defined(WIKIPEDIA)
-	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71
-#elseif defined(TOPDOWN)
-	0x7e, 0x48, 0x3d, 0x6d, 0x4b, 0x67, 0x77, 0x4c, 0x7f, 0x6f,
-#else
-	0x7b, 0x09, 0xb3, 0x9b, 0xc9, 0xda, 0xfa, 0x0b, 0xfb, 0xdb
-#endif
+	0x7b, 0x09, 0xb3, 0x9b, 0xc9, 0xda, 0xfa, 0x0b, 0xfb, 0xdb,
 };
 
 #define mode(on) bit(P1OUT, MODE, on)
@@ -76,7 +84,7 @@ write(uint8_t number)
 	// MSB first
 	for (i = 7; i >= 0; i -= 1) {
 		sin(number & (1 << i));
-
+		
 		for (j = 0; j < 12; j += 1) {
 			pulse();
 		}
@@ -148,27 +156,25 @@ setup_dc()
 void
 draw()
 {
-#if 1
 	uint16_t clk;
 
 	write_num(score_a, 3);
 	
-	clk = ((period_clock / 10) / 60) * 100;
-	clk = clk + ((period_clock / 10) % 60);
-	write_num(clk, 4);
+	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
+		for (clk = 0; clk < 4; clk += 1) {
+			write(0);
+		}
+	} else {
+		clk = (abs(period_clock / 10) / 60) * 100;
+		clk += abs(period_clock / 10) % 60;
+		write_num(clk, 4);
+	}
 	
-	clk = ((jam_clock / 600) % 10) * 1000;
-	clk = clk + (jam_clock % 600);
+	clk = (abs(jam_clock / 600) % 10) * 1000;
+	clk +=  abs(jam_clock) % 600;
 	write_num(clk, 4);
 	
 	write_num(score_b, 2);
-#else
-	int i;
-	
-	for (i = 0; i < 12; i += 1) {
-		write_num(sizeof(seven_segment_digits) - 1, 1);
-	}
-#endif
 
 	latch();
 	pulse();
@@ -182,6 +188,7 @@ nesprobe()
 {
 	int i;
 	uint8_t state = 0;
+	uint8_t ret = 0;
 
 	P1OUT |= NESLTCH;
 	P1OUT &= ~NESLTCH;
@@ -197,7 +204,11 @@ nesprobe()
 		P1OUT &= ~NESCLK;
 	}
 	
-	return state;
+	// Only report button down events.
+	ret = (last_controller ^ state) & state;
+	last_controller = state;
+
+	return ret;
 }
 
 void
@@ -205,16 +216,26 @@ update_controller()
 {
 	uint8_t val = nesprobe();
 
-	if (val & 0x80) {
+	if (val & BTN_A) {
 		switch (state) {
 		case JAM:
-			jam_clock = 300;
+			jam_clock = -300;
 			state = LINEUP;
 			break;
 		default:
-			jam_clock = 600 * 2;
+			jam_clock = -600 * 2;
 			state = JAM;
 			break;
+		}
+	}
+	
+	if (val & BTN_START) {
+		switch (state) {
+		case TIMEOUT:
+			break;
+		default:
+			state = TIMEOUT;
+			jam_clock = 1;
 		}
 	}
 }
@@ -225,12 +246,23 @@ update_controller()
 void
 loop()
 {
-	if (jam_clock) {
-		jam_clock -= 1;
+	switch (state) {
+	case SETUP:
+		break;
+	default:
+		if (jam_clock) {
+			jam_clock += 1;
+		}
 	}
 	
-	if (period_clock) {
-		period_clock -= 1;
+	switch (state) {
+	case SETUP:
+	case TIMEOUT:
+		break;
+	default:
+		if (period_clock) {
+			period_clock += 1;
+		}
 	}
 	
 	draw();
@@ -247,7 +279,7 @@ main(void)
 
 	P1OUT = 0;
 		
-	setup_gs();
+	//setup_gs();
 	setup_dc();
 
 	// Enable interrupts
@@ -271,7 +303,7 @@ main(void)
 			
 				loop();
 
-				P1OUT ^= BIT6;
+				//P1OUT ^= BIT6;
 			}
 		}
 	}
