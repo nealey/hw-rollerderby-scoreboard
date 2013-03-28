@@ -1,28 +1,39 @@
-#include <msp430.h>
-
-unsigned int i = 0;
-
-unsigned char bits1 = BIT0 + BIT1 + BIT2 + BIT3 + BIT4 + BIT5 + BIT6 + BIT7;
-unsigned char bits2 = BIT0 + BIT1 + BIT2 + BIT3 + BIT4 + BIT5;
-
-int
-main(void)
+#include <avr/io.h>
+#include <util/delay.h>
+ 
+ 
+int main (void)
 {
-	WDTCTL = WDTPW + WDTHOLD;
-	P1DIR |= bits1;
-	P2DIR |= bits2;
-
-	P1OUT |= bits1;
-	P2OUT &= ~bits2;
-
-	for (;;) {
-		i = (i + 1) % 40000;
-		
-		if (i == 0) {
-			P1OUT ^= bits1;
-			P2OUT ^= bits2;
-		}
-	}		
-
-	return 0;
+  unsigned char counter;
+  /* set PORTB for output*/
+  DDRB = 0xFF;
+ 
+  while (1)
+    {
+      /* set PORTB.2 high */
+      PORTB = 0xFF;
+ 
+      /* wait (10 * 120000) cycles = wait 1200000 cycles */
+      counter = 0;
+      while (counter != 50)
+	{
+	  /* wait (30000 x 4) cycles = wait 120000 cycles */
+	  _delay_loop_2(60000);
+	  counter++;
+	}
+ 
+      /* set PORTB.2 low */
+      PORTB = 0x00;
+ 
+      /* wait (10 * 120000) cycles = wait 1200000 cycles */
+      counter = 0;
+      while (counter != 50)
+	{
+	  /* wait (30000 x 4) cycles = wait 120000 cycles */
+	  _delay_loop_2(30000);
+	  counter++;
+	}
+    }
+ 
+  return 1;
 }
