@@ -238,6 +238,14 @@ update_controller()
 			jam_clock = 1;
 		}
 	}
+
+	if (val & BTN_LEFT) {
+		score_a += 1;
+	}
+	
+	if (val & BTN_RIGHT) {
+		score_b += 1;
+	}
 }
 
 /*
