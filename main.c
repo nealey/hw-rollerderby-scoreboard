@@ -1,4 +1,4 @@
-#include <msp430.h>
+#include <avr/io.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -25,29 +25,29 @@ enum {
 uint8_t last_controller = 0;
 
 
-#define MODE BIT0
-#define SIN BIT1
-#define SCLK BIT2
-#define XLAT BIT3
+#define MODE _BV(0)
+#define SIN _BV(1)
+#define SCLK _BV(2)
+#define XLAT _BV(3)
 // Connect GSCLK to SCLK
 // Connect BLANK to XLAT
 // TRUST ME, THIS TOTALLY WORKS
 
-#define NESCLK BIT4
-#define NESLTCH BIT5
-#define NESSOUT BIT7
+#define NESCLK _BV(4)
+#define NESLTCH _BV(5)
+#define NESSOUT _BV(6)
 
 
 // NES Controller buttons
 
-#define BTN_A BIT7
-#define BTN_B BIT6
-#define BTN_SELECT BIT5
-#define BTN_START BIT4
-#define BTN_UP BIT3
-#define BTN_DOWN BIT2
-#define BTN_LEFT BIT1
-#define BTN_RIGHT BIT0
+#define BTN_A _BV(7)
+#define BTN_B _BV(6)
+#define BTN_SELECT _BV(5)
+#define BTN_START _BV(4)
+#define BTN_UP _BV(3)
+#define BTN_DOWN _BV(2)
+#define BTN_LEFT _BV(1)
+#define BTN_RIGHT _BV(0)
 
 
 #define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
@@ -56,10 +56,10 @@ const uint8_t seven_segment_digits[] = {
 	0x7b, 0x09, 0xb3, 0x9b, 0xc9, 0xda, 0xfa, 0x0b, 0xfb, 0xdb,
 };
 
-#define mode(on) bit(P1OUT, MODE, on)
-#define sin(on) bit(P1OUT, SIN, on)
-#define sclk(on) bit(P1OUT, SCLK, on)
-#define xlat(on) bit(P1OUT, XLAT, on)
+#define mode(on) bit(PORTD, MODE, on)
+#define sin(on) bit(PORTD, SIN, on)
+#define sclk(on) bit(PORTD, SCLK, on)
+#define xlat(on) bit(PORTD, XLAT, on)
 
 void
 latch()
@@ -106,16 +106,6 @@ write_num(uint16_t number, int digits)
 		
 		write(seven_segment_digits[n]);
 		divisor /= 10;
-	}
-}
-
-void
-blip()
-{
-	int i;
-	
-	for (i = 0; i < 12; i += 1) {
-		__delay_cycles(1);
 	}
 }
 
@@ -190,18 +180,18 @@ nesprobe()
 	uint8_t state = 0;
 	uint8_t ret = 0;
 
-	P1OUT |= NESLTCH;
-	P1OUT &= ~NESLTCH;
+	PORTD |= NESLTCH;
+	PORTD &= ~NESLTCH;
 	
 	for (i = 0; i < 8; i += 1) {
 		state <<= 1;
-		if (P1IN & NESSOUT) {
+		if (PIND & NESSOUT) {
 			// Button not pressed
 		} else {
 			state |= 1;
 		}
-		P1OUT |= NESCLK;
-		P1OUT &= ~NESCLK;
+		PORTD |= NESCLK;
+		PORTD &= ~NESCLK;
 	}
 	
 	// Only report button down events.
@@ -281,24 +271,18 @@ main(void)
 {
 	uint16_t jiffies = 0;
 
-	WDTCTL = WDTPW + WDTHOLD;	// Disable Watchdog Timer
-	P1DIR |= MODE + SIN + SCLK + XLAT + NESCLK + NESLTCH + BIT6;		// P1 output bits
-	P1DIR &= ~(NESSOUT);
+	DDRD = ~(NESSOUT);
+	DDRB = 0xff;
 
-	P1OUT = 0;
+	PORTD = 0;
 		
 	//setup_gs();
 	setup_dc();
 
-	// Enable interrupts
-	CCTL0 |= CCIE;		// Trigger interrupt on   A checkpoint
-	TACTL = TASSEL_2 + MC_1;		// Set timer A to SMCLCK, up mode
-	TACCR0 = 0x4444;	// Interrupt 60 times per second
-	
-	__enable_interrupt();
-
 	// Now actually run
 	for (;;) {
+		uint32_t i;
+		
 		update_controller();		
 
 		if (tick) {
@@ -311,14 +295,21 @@ main(void)
 			
 				loop();
 
-				//P1OUT ^= BIT6;
+				PORTB ^= 0xff;
 			}
 		}
+		
+		// XXX: fix timer_a
+		for (i = 0; i < 20000; i += 1) {
+			tick = !tick;
+		}
+		tick = true;
 	}
 }
 
+// XXX: reenable this
 // Timer A0 interrupt service routine
-__attribute__((interrupt(TIMER0_A0_VECTOR)))
+//__attribute__((interrupt(TIMER0_A0_VECTOR)))
 void timer_a(void)
 {
 	tick = true;

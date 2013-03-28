@@ -1,3 +1,5 @@
+PROG = main
+
 CC = avr-gcc
 CFLAGS += -mmcu=atmega328p
 CFLAGS += -DF_CPU=16000000UL
@@ -12,15 +14,15 @@ AVDFLAGS += -P /dev/ttyACM0
 
 upload: .upload
 
-.upload: blink.hex
+.upload: $(PROG).hex
 	avrdude $(AVDFLAGS) -U flash:w:$<
 	touch $@
 
-blink.hex: blink
+$(PROG).hex: $(PROG)
 	avr-objcopy -O ihex -R .eeprom -R .fuse -R .lock -R .signature $< $@
 
 clean:
-	rm -f blink.hex blink
+	rm -f $(PROG) *.hex .upload
 
 
 
