@@ -1,4 +1,5 @@
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -24,6 +25,9 @@ enum {
 
 uint8_t last_controller = 0;
 
+
+#define cbi(byt, bit)   (byt &= ~_BV(bit))
+#define sbi(byt, bit)   (byt |= _BV(bit))
 
 #define MODE _BV(0)
 #define SIN _BV(1)
@@ -53,7 +57,7 @@ uint8_t last_controller = 0;
 #define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
 
 const uint8_t seven_segment_digits[] = {
-	0x7b, 0x09, 0xb3, 0x9b, 0xc9, 0xda, 0xfa, 0x0b, 0xfb, 0xdb,
+	0x7e, 0x48, 0x3d, 0x6d, 0x4b, 0x67, 0x77, 0x4c, 0x7f, 0x6f
 };
 
 #define mode(on) bit(PORTD, MODE, on)
@@ -148,6 +152,11 @@ draw()
 {
 	uint16_t clk;
 
+	//XXX testing
+#if 1
+	write_num(jam_clock / 10, 2);
+#else
+
 	write_num(score_a, 3);
 	
 	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
@@ -165,6 +174,7 @@ draw()
 	write_num(clk, 4);
 	
 	write_num(score_b, 2);
+#endif
 
 	latch();
 	pulse();
@@ -278,18 +288,27 @@ main(void)
 		
 	//setup_gs();
 	setup_dc();
+	
+	// this combination is for the standard 168/328/1280/2560
+	TCCR0B = 0x03;
 
+	// enable timer 0 overflow interrupt
+	TIMSK0 = 0x01;
+	
+	// Enable interrupts
+	sei();
+	
 	// Now actually run
 	for (;;) {
 		uint32_t i;
 		
-		update_controller();		
+		update_controller();
 
 		if (tick) {
 			tick = false;
 			jiffies += 1;
 			
-			if (jiffies == 6) {
+			if (jiffies == 10) {
 				jiffies = 0;
 				time += 1;
 			
@@ -298,19 +317,21 @@ main(void)
 				PORTB ^= 0xff;
 			}
 		}
-		
-		// XXX: fix timer_a
-		for (i = 0; i < 20000; i += 1) {
-			tick = !tick;
-		}
-		tick = true;
 	}
 }
 
-// XXX: reenable this
-// Timer A0 interrupt service routine
-//__attribute__((interrupt(TIMER0_A0_VECTOR)))
-void timer_a(void)
+
+volatile uint32_t micros = 0;
+
+// This is called every 1024 µs
+SIGNAL(TIMER0_OVF_vect)
 {
-	tick = true;
+	uint32_t m = micros;
+	
+	m += 1024;
+	if (m >= 10000) {
+		tick = true;
+		m %= 10000;
+	}
+	micros = m;
 }
