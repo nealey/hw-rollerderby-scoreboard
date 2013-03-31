@@ -8,14 +8,20 @@
 // If you want scores to go over 199, you need 8
 const int nsr = 6;
 
-volatile bool tick = false; // Set high when clock ticks
-uint16_t time = 0; // Tenths of a second elapsed since boot
+//
+// Timing stuff
+//
+// Make sure JIFFY_uS is going to be an integer and not a float!
+#define JIFFIES_PER_SECOND 50
+#define JIFFY_uS (1000000 / JIFFIES_PER_SECOND)
+volatile uint32_t jiffies = 0;
+volatile bool tick = false; // Set high when jiffy clock ticks
 
 // Clocks are in deciseconds
 uint16_t score_a = 0;
 uint16_t score_b = 0;
 int16_t period_clock = -600 * 30;
-int16_t jam_clock = -600 * 2;
+int16_t jam_clock = 0;
 enum {
 	SETUP,
 	JAM,
@@ -23,7 +29,6 @@ enum {
 	TIMEOUT
 } state = SETUP;
 
-uint8_t last_controller = 0;
 
 
 #define cbi(byt, bit)   (byt &= ~_BV(bit))
@@ -57,7 +62,11 @@ uint8_t last_controller = 0;
 #define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
 
 const uint8_t seven_segment_digits[] = {
-	0x7e, 0x48, 0x3d, 0x6d, 0x4b, 0x67, 0x77, 0x4c, 0x7f, 0x6f
+	0x7b, 0x60, 0x37, 0x76, 0x6c, 0x5e, 0x5f, 0x70, 0x7f, 0x7e
+};
+
+const uint8_t setup_digits[] = {
+	0x1b, 0x12, 0x72
 };
 
 #define mode(on) bit(PORTD, MODE, on)
@@ -78,6 +87,23 @@ pulse()
 	sclk(true);
 	sclk(false);
 }
+
+volatile uint32_t micros = 0;
+
+// Interrupt called every 1024 µs
+SIGNAL(TIMER0_OVF_vect)
+{
+	uint32_t m = micros;
+	
+	m += 1024;
+	if (m >= JIFFY_uS) {
+		m %= JIFFY_uS;
+		tick = true;
+		jiffies += 1;
+	}
+	micros = m;
+}
+
 
 void
 write(uint8_t number)
@@ -100,48 +126,13 @@ write_num(uint16_t number, int digits)
 {
 	uint16_t divisor = 1;
 	int i;
-	
-	for (i = 1; i < digits; i += 1) {
-		divisor *= 10;
-	}
-	
+
 	for (i = 0; i < digits; i += 1) {
 		uint16_t n = (number / divisor) % 10;
 		
 		write(seven_segment_digits[n]);
-		divisor /= 10;
+		divisor *= 10;
 	}
-}
-
-/* Set up grayscale */
-void
-setup_gs()
-{
-	int i;
-	
-	for (i = 0; i < nsr; i += 1) {
-		write(0);
-	}
-	latch();
-}
-
-/*
- * Set up dot correction.
- * 
- * We don't use dot correction so this is easy: set everything to full brightness.
- */
-void
-setup_dc()
-{
-	int i;
-
-	mode(true);
-	sin(true);
-	for (i = 0; i < nsr * 96; i += 1) {
-		pulse();
-	}
-	latch();
-	mode(false);
 }
 
 /*
@@ -153,9 +144,6 @@ draw()
 	uint16_t clk;
 
 	//XXX testing
-#if 1
-	write_num(jam_clock / 10, 2);
-#else
 
 	write_num(score_a, 3);
 	
@@ -169,12 +157,18 @@ draw()
 		write_num(clk, 4);
 	}
 	
-	clk = (abs(jam_clock / 600) % 10) * 1000;
-	clk +=  abs(jam_clock) % 600;
-	write_num(clk, 4);
+	if (state == SETUP) {
+		write(setup_digits[2]);
+		write(setup_digits[1]);
+		write(setup_digits[1]);
+		write(setup_digits[0]);
+	} else {
+		clk = (abs(jam_clock / 600) % 10) * 1000;
+		clk +=  abs(jam_clock) % 600;
+		write_num(clk, 4);
+	}
 	
-	write_num(score_b, 2);
-#endif
+	//write_num(score_b, 2);
 
 	latch();
 	pulse();
@@ -189,6 +183,7 @@ nesprobe()
 	int i;
 	uint8_t state = 0;
 	uint8_t ret = 0;
+	static uint8_t last_controller = 0;
 
 	PORTD |= NESLTCH;
 	PORTD &= ~NESLTCH;
@@ -215,81 +210,54 @@ void
 update_controller()
 {
 	uint8_t val = nesprobe();
+	int inc = 1;
 
-	if (val & BTN_A) {
-		switch (state) {
-		case JAM:
-			jam_clock = -300;
-			state = LINEUP;
-			break;
-		default:
-			jam_clock = -600 * 2;
-			state = JAM;
-			break;
-		}
+	if ((val & BTN_A) && (state != JAM)) {
+		state = JAM;
+		jam_clock = -600 * 2;
 	}
 	
-	if (val & BTN_START) {
-		switch (state) {
-		case TIMEOUT:
-			break;
-		default:
-			state = TIMEOUT;
-			jam_clock = 1;
-		}
+	if ((val & BTN_B) && (state != LINEUP)) {
+		state = LINEUP;	
+		jam_clock = -300;
+	}
+
+	if ((val & BTN_START) && (state != TIMEOUT)) {
+		state = TIMEOUT;
+		jam_clock = 1;
+	}
+	
+	if (val & BTN_SELECT) {
+		inc = -1;
+
+		// XXX: if in timeout, select digit to adjust
 	}
 
 	if (val & BTN_LEFT) {
-		score_a += 1;
+		score_a += inc;
 	}
 	
 	if (val & BTN_RIGHT) {
-		score_b += 1;
+		score_b += inc;
+	}
+
+	if (val) {
+		PORTB = 0xff;
+	} else {
+		PORTB = 0;
 	}
 }
 
 /*
- * Run logic for this decisecond
+ *
+ * Main program
+ *
  */
+
 void
-loop()
+init(void)
 {
-	switch (state) {
-	case SETUP:
-		break;
-	default:
-		if (jam_clock) {
-			jam_clock += 1;
-		}
-	}
-	
-	switch (state) {
-	case SETUP:
-	case TIMEOUT:
-		break;
-	default:
-		if (period_clock) {
-			period_clock += 1;
-		}
-	}
-	
-	draw();
-}
-
-int
-main(void)
-{
-	uint16_t jiffies = 0;
-
-	DDRD = ~(NESSOUT);
-	DDRB = 0xff;
-
-	PORTD = 0;
-		
-	//setup_gs();
-	setup_dc();
-	
-	// this combination is for the standard 168/328/1280/2560
+	// Set timer 0 interrupt clock divider to 64
 	TCCR0B = 0x03;
 
 	// enable timer 0 overflow interrupt
@@ -297,41 +265,74 @@ main(void)
 	
 	// Enable interrupts
 	sei();
+}
+
+void
+setup()
+{
+	int i;
+
+	DDRD = ~(NESSOUT);
+	DDRB = 0xff;
+
+	PORTD = 0;
 	
-	// Now actually run
-	for (;;) {
-		uint32_t i;
+	// Datasheet says you have to do this before DC initialization.
+	// In practice it doesn't seem to matter, but what the hey.
+	draw();
+
+	// Initialize dot correction logic
+	mode(true);
+	sin(true);
+	for (i = 0; i < nsr * 96; i += 1) {
+		pulse();
+	}
+	latch();
+	mode(false);
+}
+
+void
+loop()
+{
+	uint32_t i;
+	
+
+	if (tick) {
+		tick = false;
 		
 		update_controller();
 
-		if (tick) {
-			tick = false;
-			jiffies += 1;
-			
-			if (jiffies == 10) {
-				jiffies = 0;
-				time += 1;
-			
-				loop();
-
-				PORTB ^= 0xff;
+		if (jiffies % (JIFFIES_PER_SECOND / 10) == 0) {
+			switch (state) {
+			case SETUP:
+				break;
+			case TIMEOUT:
+				if (period_clock) {
+					period_clock += 1;
+				}
+				// fall through
+			case JAM:
+			case LINEUP:
+				if (jam_clock) {
+					jam_clock += 1;
+				}
 			}
+			
+			draw();
 		}
 	}
 }
 
-
-volatile uint32_t micros = 0;
-
-// This is called every 1024 µs
-SIGNAL(TIMER0_OVF_vect)
+int
+main(void)
 {
-	uint32_t m = micros;
-	
-	m += 1024;
-	if (m >= 10000) {
-		tick = true;
-		m %= 10000;
+	init();
+	setup();
+	for (;;) {
+		loop();
 	}
-	micros = m;
+	return 0;
 }
+
+
+
