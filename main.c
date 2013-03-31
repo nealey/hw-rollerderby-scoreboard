@@ -20,7 +20,9 @@ volatile bool tick = false; // Set high when jiffy clock ticks
 // Clocks are in deciseconds
 uint16_t score_a = 0;
 uint16_t score_b = 0;
-int16_t period_clock = -600 * 30;
+int16_t period_clock = -(30 * 60 * 10);
+int16_t jam_duration = -(2 * 60 * 10);
+int16_t lineup_duration = (-30 * 10);
 int16_t jam_clock = 0;
 enum {
 	SETUP,
@@ -68,6 +70,8 @@ const uint8_t seven_segment_digits[] = {
 const uint8_t setup_digits[] = {
 	0x1b, 0x12, 0x72
 };
+
+const
 
 #define mode(on) bit(PORTD, MODE, on)
 #define sin(on) bit(PORTD, SIN, on)
@@ -212,14 +216,14 @@ update_controller()
 	uint8_t val = nesprobe();
 	int inc = 1;
 
-	if ((val & BTN_A) && (state != JAM)) {
+	if ((val & BTN_A) && ((state != JAM) || (jam_clock == 0))) {
 		state = JAM;
-		jam_clock = -600 * 2;
+		jam_clock = jam_duration;
 	}
 	
-	if ((val & BTN_B) && (state != LINEUP)) {
+	if ((val & BTN_B) && ((state != LINEUP) || (jam_clock == 0))) {
 		state = LINEUP;	
-		jam_clock = -300;
+		jam_clock = lineup_duration;
 	}
 
 	if ((val & BTN_START) && (state != TIMEOUT)) {
