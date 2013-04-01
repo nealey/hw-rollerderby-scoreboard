@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "avr.h"
+#include "ti.h"
 
 // Number of shift registers in your scoreboard
 // If you want scores to go over 199, you need 8

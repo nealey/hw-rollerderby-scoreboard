@@ -1,0 +1,17 @@
+CC = msp430-gcc
+LDFLAGS += -mmcu=msp430g2553
+CFLAGS += -mmcu=msp430g2553
+CFLAGS += -Wall
+CFLAGS += -Os
+CFLAGS += -w
+
+upload: .upload
+
+.upload: main
+	mspdebug rf2500 "prog $<"
+	touch $@
+
+main: main.o ti.o
+
+clean:
+	rm -f main *.o .upload
