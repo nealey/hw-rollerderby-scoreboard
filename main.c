@@ -105,8 +105,6 @@ draw()
 
 	//XXX testing
 
-	write_num(score_a, 3);
-	
 	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
 		for (clk = 0; clk < 4; clk += 1) {
 			write(0);
@@ -116,6 +114,8 @@ draw()
 		clk += abs(period_clock / 10) % 60;
 		write_num(clk, 4);
 	}
+	
+	write_num(score_b, 2);
 	
 	if (state == SETUP) {
 		write(setup_digits[2]);
@@ -128,7 +128,7 @@ draw()
 		write_num(clk, 4);
 	}
 	
-	//write_num(score_b, 2);
+	write_num(score_a, 2);
 
 	latch();
 	pulse();
@@ -142,8 +142,6 @@ nesprobe()
 {
 	int i;
 	uint8_t state = 0;
-	uint8_t ret = 0;
-	static uint8_t last_controller = 0;
 
 	nesltch(true);
 	nesltch(false);
@@ -160,44 +158,47 @@ nesprobe()
 	}
 	
 	// Only report button down events.
-	ret = (last_controller ^ state) & state;
-	last_controller = state;
-
-	return ret;
+	return state;
 }
 
 void
 update_controller()
 {
-	uint8_t val = nesprobe();
+	static uint8_t last_val = 0;
+	uint8_t  cur;
+	uint8_t pressed;
 	int inc = 1;
+	
+	cur = nesprobe();
+	pressed = (last_val ^ cur) & cur;
+	last_val = cur;
 
-	if ((val & BTN_A) && ((state != JAM) || (jam_clock == 0))) {
+	if ((pressed & BTN_A) && ((state != JAM) || (jam_clock == 0))) {
 		state = JAM;
 		jam_clock = jam_duration;
 	}
 	
-	if ((val & BTN_B) && ((state != LINEUP) || (jam_clock == 0))) {
+	if ((pressed & BTN_B) && ((state != LINEUP) || (jam_clock == 0))) {
 		state = LINEUP;	
 		jam_clock = lineup_duration;
 	}
 
-	if ((val & BTN_START) && (state != TIMEOUT)) {
+	if ((pressed & BTN_START) && (state != TIMEOUT)) {
 		state = TIMEOUT;
 		jam_clock = 1;
 	}
 	
-	if (val & BTN_SELECT) {
+	if (cur & BTN_SELECT) {
 		inc = -1;
 
 		// XXX: if in timeout, select digit to adjust
 	}
 
-	if (val & BTN_LEFT) {
+	if (pressed & BTN_LEFT) {
 		score_a += inc;
 	}
 	
-	if (val & BTN_RIGHT) {
+	if (pressed & BTN_RIGHT) {
 		score_b += inc;
 	}
 }
