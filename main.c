@@ -1,8 +1,7 @@
-#include <avr/io.h>
-#include <avr/interrupt.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "avr.h"
 
 // Number of shift registers in your scoreboard
 // If you want scores to go over 199, you need 8
@@ -11,9 +10,7 @@ const int nsr = 6;
 //
 // Timing stuff
 //
-// Make sure JIFFY_uS is going to be an integer and not a float!
-#define JIFFIES_PER_SECOND 50
-#define JIFFY_uS (1000000 / JIFFIES_PER_SECOND)
+
 volatile uint32_t jiffies = 0;
 volatile bool tick = false; // Set high when jiffy clock ticks
 
@@ -30,23 +27,6 @@ enum {
 	LINEUP,
 	TIMEOUT
 } state = SETUP;
-
-
-
-#define cbi(byt, bit)   (byt &= ~_BV(bit))
-#define sbi(byt, bit)   (byt |= _BV(bit))
-
-#define MODE _BV(0)
-#define SIN _BV(1)
-#define SCLK _BV(2)
-#define XLAT _BV(3)
-// Connect GSCLK to SCLK
-// Connect BLANK to XLAT
-// TRUST ME, THIS TOTALLY WORKS
-
-#define NESCLK _BV(4)
-#define NESLTCH _BV(5)
-#define NESSOUT _BV(6)
 
 
 // NES Controller buttons
@@ -71,13 +51,6 @@ const uint8_t setup_digits[] = {
 	0x1b, 0x12, 0x72
 };
 
-const
-
-#define mode(on) bit(PORTD, MODE, on)
-#define sin(on) bit(PORTD, SIN, on)
-#define sclk(on) bit(PORTD, SCLK, on)
-#define xlat(on) bit(PORTD, XLAT, on)
-
 void
 latch()
 {
@@ -91,23 +64,6 @@ pulse()
 	sclk(true);
 	sclk(false);
 }
-
-volatile uint32_t micros = 0;
-
-// Interrupt called every 1024 µs
-SIGNAL(TIMER0_OVF_vect)
-{
-	uint32_t m = micros;
-	
-	m += 1024;
-	if (m >= JIFFY_uS) {
-		m %= JIFFY_uS;
-		tick = true;
-		jiffies += 1;
-	}
-	micros = m;
-}
-
 
 void
 write(uint8_t number)
@@ -189,18 +145,18 @@ nesprobe()
 	uint8_t ret = 0;
 	static uint8_t last_controller = 0;
 
-	PORTD |= NESLTCH;
-	PORTD &= ~NESLTCH;
+	nesltch(true);
+	nesltch(false);
 	
 	for (i = 0; i < 8; i += 1) {
 		state <<= 1;
-		if (PIND & NESSOUT) {
+		if (nesout()) {
 			// Button not pressed
 		} else {
 			state |= 1;
 		}
-		PORTD |= NESCLK;
-		PORTD &= ~NESCLK;
+		nesclk(true);
+		nesclk(false);
 	}
 	
 	// Only report button down events.
@@ -244,12 +200,6 @@ update_controller()
 	if (val & BTN_RIGHT) {
 		score_b += inc;
 	}
-
-	if (val) {
-		PORTB = 0xff;
-	} else {
-		PORTB = 0;
-	}
 }
 
 /*
@@ -258,29 +208,12 @@ update_controller()
  *
  */
 
-void
-init(void)
-{
-	// Set timer 0 interrupt clock divider to 64
-	TCCR0B = 0x03;
-
-	// enable timer 0 overflow interrupt
-	TIMSK0 = 0x01;
-	
-	// Enable interrupts
-	sei();
-}
 
 void
 setup()
 {
 	int i;
 
-	DDRD = ~(NESSOUT);
-	DDRB = 0xff;
-
-	PORTD = 0;
-	
 	// Datasheet says you have to do this before DC initialization.
 	// In practice it doesn't seem to matter, but what the hey.
 	draw();

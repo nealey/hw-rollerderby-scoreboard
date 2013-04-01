@@ -21,6 +21,8 @@ upload: .upload
 $(PROG).hex: $(PROG)
 	avr-objcopy -O ihex -R .eeprom -R .fuse -R .lock -R .signature $< $@
 
+main: main.o avr.o
+
 clean:
 	rm -f $(PROG) *.hex .upload
 
