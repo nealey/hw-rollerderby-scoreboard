@@ -1,7 +1,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "ti.h"
+
+#include <avr/io.h>
+#include <util/delay.h>
+
+#if defined (__AVR_ATmega328P__)
+#  include "avr.h"
+#else
+#  include "ti.h"
+#endif
 
 // Number of shift registers in your scoreboard
 // If you want scores to go over 199, you need 8
@@ -39,9 +47,6 @@ enum {
 #define BTN_DOWN _BV(2)
 #define BTN_LEFT _BV(1)
 #define BTN_RIGHT _BV(0)
-
-
-#define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
 
 const uint8_t seven_segment_digits[] = {
 	0x7b, 0x60, 0x37, 0x76, 0x6c, 0x5e, 0x5f, 0x70, 0x7f, 0x7e

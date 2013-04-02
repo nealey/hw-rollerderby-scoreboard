@@ -1,10 +1,14 @@
 PROG = main
 
+MCU = atmega328p
+
 CC = avr-gcc
-CFLAGS += -mmcu=atmega328p
+CFLAGS += -mmcu=$(MCU)
 CFLAGS += -DF_CPU=16000000UL
 CFLAGS += -Os
 CFLAGS += -w
+
+LDFLAGS += -mmcu=$(MCU)
 
 AVDFLAGS += -p m328p
 AVDFLAGS += -c arduino
@@ -23,8 +27,11 @@ $(PROG).hex: $(PROG)
 
 main: main.o avr.o
 
+#main.o: avr.h
+#avr.o: avr.h
+
 clean:
-	rm -f $(PROG) *.hex .upload
+	rm -f $(PROG) *.o *.hex .upload
 
 
 

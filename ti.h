@@ -8,6 +8,8 @@
 
 #define JIFFIES_PER_SECOND 60
 
+#define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
+
 #define mode(on) bit(P1OUT, _BV(0), on)
 #define sin(on) bit(P1OUT, _BV(1), on)
 #define sclk(on) bit(P1OUT, _BV(2), on)

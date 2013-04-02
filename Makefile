@@ -1,4 +1,4 @@
-ARCH = ti
+ARCH = avr
 
 include Makefile.$(ARCH)
 

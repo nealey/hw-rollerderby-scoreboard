@@ -9,6 +9,8 @@
 #define JIFFIES_PER_SECOND 50
 #define JIFFY_uS (1000000 / JIFFIES_PER_SECOND)
 
+#define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
+
 #define mode(on) bit(PORTD, _BV(0), on)
 #define sin(on) bit(PORTD, _BV(1), on)
 #define sclk(on) bit(PORTD, _BV(2), on)
