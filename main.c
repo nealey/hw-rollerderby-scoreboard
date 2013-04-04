@@ -110,15 +110,6 @@ draw()
 
 	//XXX testing
 
-	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
-		for (clk = 0; clk < 4; clk += 1) {
-			write(0);
-		}
-	} else {
-		clk = (abs(period_clock / 10) / 60) * 100;
-		clk += abs(period_clock / 10) % 60;
-		write_num(clk, 4);
-	}
 	
 	write_num(score_b, 2);
 	
@@ -135,6 +126,18 @@ draw()
 	
 	write_num(score_a, 2);
 
+
+	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
+		// Blank it out
+		for (clk = 0; clk < 4; clk += 1) {
+			write(0);
+		}
+	} else {
+		clk = (abs(period_clock / 10) / 60) * 100;
+		clk += abs(period_clock / 10) % 60;
+		write_num(clk, 4);
+	}
+	
 	latch();
 	pulse();
 }
@@ -249,13 +252,13 @@ loop()
 			switch (state) {
 			case SETUP:
 				break;
-			case TIMEOUT:
+			case JAM:
+			case LINEUP:
 				if (period_clock) {
 					period_clock += 1;
 				}
 				// fall through
-			case JAM:
-			case LINEUP:
+			case TIMEOUT:
 				if (jam_clock) {
 					jam_clock += 1;
 				}
