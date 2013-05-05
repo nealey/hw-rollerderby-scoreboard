@@ -15,10 +15,10 @@ int main (void)
  
       /* wait (10 * 120000) cycles = wait 1200000 cycles */
       counter = 0;
-      while (counter != 50)
+      while (counter != 10)
 	{
 	  /* wait (30000 x 4) cycles = wait 120000 cycles */
-	  _delay_loop_2(60000);
+	  _delay_loop_2(30000);
 	  counter++;
 	}
  
@@ -27,7 +27,7 @@ int main (void)
  
       /* wait (10 * 120000) cycles = wait 1200000 cycles */
       counter = 0;
-      while (counter != 50)
+      while (counter != 10)
 	{
 	  /* wait (30000 x 4) cycles = wait 120000 cycles */
 	  _delay_loop_2(30000);

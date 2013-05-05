@@ -5,7 +5,7 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-#if defined (__AVR_ATmega328P__)
+#if ARCH == avr
 #  include "avr.h"
 #else
 #  include "ti.h"
@@ -249,6 +249,7 @@ loop()
 		update_controller();
 
 		if (jiffies % (JIFFIES_PER_SECOND / 10) == 0) {
+		PORTB ^= 0xff;
 			switch (state) {
 			case SETUP:
 				break;

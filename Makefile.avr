@@ -1,19 +1,20 @@
 PROG = main
 
-MCU = atmega328p
+MCU = attiny84
 
 CC = avr-gcc
 CFLAGS += -mmcu=$(MCU)
-CFLAGS += -DF_CPU=16000000UL
 CFLAGS += -Os
 CFLAGS += -w
 
 LDFLAGS += -mmcu=$(MCU)
 
-AVDFLAGS += -p m328p
-AVDFLAGS += -c arduino
-AVDFLAGS += -b 115200
-AVDFLAGS += -P /dev/ttyACM0
+AVDFLAGS += -p $(MCU)
+AVDFLAGS += -c usbtiny
+
+FUSES += -U lfuse:w:0x7f:m
+FUSES += -U hfuse:w:0xd9:m
+FUSES += -U efuse:w:0xff:m
 
 
 upload: .upload
@@ -21,6 +22,9 @@ upload: .upload
 .upload: $(PROG).hex
 	avrdude $(AVDFLAGS) -U flash:w:$<
 	touch $@
+
+fuses:
+	avrdude $(AVDFLAGS) $(FUSES)
 
 $(PROG).hex: $(PROG)
 	avr-objcopy -O ihex -R .eeprom -R .fuse -R .lock -R .signature $< $@
