@@ -241,17 +241,16 @@ void
 loop()
 {
 	uint32_t i;
-	
 
 	if (tick) {
 		tick = false;
 		
 		update_controller();
 
+		if (jiffies % 66 == 0) {
+			PORTB ^= 0xff;
+		}
 		if (jiffies % (JIFFIES_PER_SECOND / 10) == 0) {
-			if (jiffies % JIFFIES_PER_SECOND == 0) {
-				PORTB ^= 0xff;
-			}
 			switch (state) {
 			case SETUP:
 				break;

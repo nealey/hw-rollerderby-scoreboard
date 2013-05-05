@@ -20,7 +20,7 @@ ISR(TIM0_OVF_vect)
 	
 	m += (256 * 64);
 	if (m >= JIFFY_uS) {
-		m %= JIFFY_uS;
+		m -= JIFFY_uS;
 		tick = true;
 		jiffies += 1;
 	}

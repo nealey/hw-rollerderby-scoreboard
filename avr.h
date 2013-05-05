@@ -5,7 +5,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-
 // Make sure JIFFY_uS is going to be an integer and not a float!
 #define JIFFIES_PER_SECOND 100
 #define JIFFY_uS (1000000 / JIFFIES_PER_SECOND)

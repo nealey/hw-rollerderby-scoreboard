@@ -12,7 +12,7 @@ LDFLAGS += -mmcu=$(MCU)
 AVDFLAGS += -p $(MCU)
 AVDFLAGS += -c usbtiny
 
-FUSES += -U lfuse:w:0x7f:m
+FUSES += -U lfuse:w:0xff:m
 FUSES += -U hfuse:w:0xd9:m
 FUSES += -U efuse:w:0xff:m
 
