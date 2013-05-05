@@ -249,7 +249,9 @@ loop()
 		update_controller();
 
 		if (jiffies % (JIFFIES_PER_SECOND / 10) == 0) {
-		PORTB ^= 0xff;
+			if (jiffies % JIFFIES_PER_SECOND == 0) {
+				PORTB ^= 0xff;
+			}
 			switch (state) {
 			case SETUP:
 				break;
