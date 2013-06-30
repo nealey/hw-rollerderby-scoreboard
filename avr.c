@@ -4,49 +4,39 @@
 #include <avr/interrupt.h>
 #include "avr.h"
 
+/* This only works out for a 16MHz or 8MHz clock */
+#define CLOCK_HZ 16000000
+#define TICKS_PER_SECOND (CLOCK_HZ / 256)
+#define TICKS_PER_JIFFY (TICKS_PER_SECOND / 10)
+
 #define cbi(byt, bit)   (byt &= ~_BV(bit))
 #define sbi(byt, bit)   (byt |= _BV(bit))
 
 extern volatile bool tick;
 extern volatile uint32_t jiffies;
 
-// Count microseconds
-volatile uint32_t micros = 0;
-
-// Interrupt called every 256 * 64 microseconds
-ISR(TIM0_OVF_vect)
+// Interrupt called every jiffy
+ISR(TIM1_COMPA_vect)
 {
-	uint32_t m = micros;
-	
-	m += (256 * 64);
-	if (m >= JIFFY_uS) {
-		m -= JIFFY_uS;
-		tick = true;
-		jiffies += 1;
-	}
-	micros = m;
+	jiffies += 1;
+	tick = true;
 }
-
 
 void
 init(void)
 {
-	// Set prescaler to 16, so we get clock ticks at exactly 1MHz
-	CLKPR = _BV(CLKPCE);
-	CLKPR = 0x04;
-
-	// Set timer 0 interrupt clock divider to 64
-	TCCR0B = _BV(CS01) + _BV(CS00);
-
-	// enable timer 0 overflow interrupt
-	TIMSK0 |= _BV(TOIE0);    //enable compare match interrupt;
-	
-	// Enable interrupts
-	sei();
+	int i;
 
 	DDRA = ~(_BV(NESOUT));
 	DDRB = 0xff;
 
-	PORTA = 0;
-	PORTB = 0xff;
+	TCCR1A = 0;
+	TCCR1B = 0;
+	TCNT1 = 0;
+	OCR1A = TICKS_PER_JIFFY - 1;
+	TCCR1B |= (1 << WGM12);
+	TCCR1B |= (1 << CS12);
+	TIMSK1 |= (1 << OCIE1A);
+
+	sei();
 }

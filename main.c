@@ -5,22 +5,25 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-#if ARCH == avr
-#  include "avr.h"
-#else
-#  include "ti.h"
-#endif
+#include "avr.h"
 
 // Number of shift registers in your scoreboard
 // If you want scores to go over 199, you need 8
 const int nsr = 6;
 
-//
+// 
 // Timing stuff
-//
+// 
 
-volatile uint32_t jiffies = 0;
-volatile bool tick = false; // Set high when jiffy clock ticks
+// 
+// 2**32 deciseconds = 13.610221 years
+// 
+// As long as you unplug your scoreboard once every 10 years or so,
+// you're good.
+// 
+volatile uint32_t jiffies = 0;	// Elapsed time in deciseconds
+volatile bool tick = false;	// Set high when jiffy clock ticks
+
 
 // Clocks are in deciseconds
 uint16_t score_a = 0;
@@ -75,11 +78,11 @@ write(uint8_t number)
 {
 	int i;
 	int j;
-	
+
 	// MSB first
 	for (i = 7; i >= 0; i -= 1) {
 		sin(number & (1 << i));
-		
+
 		for (j = 0; j < 12; j += 1) {
 			pulse();
 		}
@@ -94,7 +97,7 @@ write_num(uint16_t number, int digits)
 
 	for (i = 0; i < digits; i += 1) {
 		uint16_t n = (number / divisor) % 10;
-		
+
 		write(seven_segment_digits[n]);
 		divisor *= 10;
 	}
@@ -108,11 +111,11 @@ draw()
 {
 	uint16_t clk;
 
-	//XXX testing
+	// XXX testing
 
-	
+
 	write_num(score_b, 2);
-	
+
 	if (state == SETUP) {
 		write(setup_digits[2]);
 		write(setup_digits[1]);
@@ -120,10 +123,10 @@ draw()
 		write(setup_digits[0]);
 	} else {
 		clk = (abs(jam_clock / 600) % 10) * 1000;
-		clk +=  abs(jam_clock) % 600;
+		clk += abs(jam_clock) % 600;
 		write_num(clk, 4);
 	}
-	
+
 	write_num(score_a, 2);
 
 
@@ -137,7 +140,7 @@ draw()
 		clk += abs(period_clock / 10) % 60;
 		write_num(clk, 4);
 	}
-	
+
 	latch();
 	pulse();
 }
@@ -153,7 +156,7 @@ nesprobe()
 
 	nesltch(true);
 	nesltch(false);
-	
+
 	for (i = 0; i < 8; i += 1) {
 		state <<= 1;
 		if (nesout()) {
@@ -164,7 +167,7 @@ nesprobe()
 		nesclk(true);
 		nesclk(false);
 	}
-	
+
 	// Only report button down events.
 	return state;
 }
@@ -173,10 +176,10 @@ void
 update_controller()
 {
 	static uint8_t last_val = 0;
-	uint8_t  cur;
+	uint8_t cur;
 	uint8_t pressed;
 	int inc = 1;
-	
+
 	cur = nesprobe();
 	pressed = (last_val ^ cur) & cur;
 	last_val = cur;
@@ -185,9 +188,9 @@ update_controller()
 		state = JAM;
 		jam_clock = jam_duration;
 	}
-	
+
 	if ((pressed & BTN_B) && ((state != LINEUP) || (jam_clock == 0))) {
-		state = LINEUP;	
+		state = LINEUP;
 		jam_clock = lineup_duration;
 	}
 
@@ -195,7 +198,7 @@ update_controller()
 		state = TIMEOUT;
 		jam_clock = 1;
 	}
-	
+
 	if (cur & BTN_SELECT) {
 		inc = -1;
 
@@ -205,7 +208,7 @@ update_controller()
 	if (pressed & BTN_LEFT) {
 		score_a += inc;
 	}
-	
+
 	if (pressed & BTN_RIGHT) {
 		score_b += inc;
 	}
@@ -223,7 +226,7 @@ setup()
 {
 	int i;
 
-	// Datasheet says you have to do this before DC initialization.
+	// TLC5941 datasheet says you have to do this before DC initialization.
 	// In practice it doesn't seem to matter, but what the hey.
 	draw();
 
@@ -244,28 +247,29 @@ loop()
 
 	if (tick) {
 		tick = false;
-		
-		update_controller();
 
-		if (jiffies % 66 == 0) {
+		update_controller();
+		
+		if (jiffies % 10 == 0) {
 			PORTB ^= 0xff;
 		}
-		if (jiffies % (JIFFIES_PER_SECOND / 10) == 0) {
+
+		if (jiffies == 0) {
 			switch (state) {
-			case SETUP:
-				break;
-			case JAM:
-			case LINEUP:
-				if (period_clock) {
-					period_clock += 1;
-				}
-				// fall through
-			case TIMEOUT:
-				if (jam_clock) {
-					jam_clock += 1;
-				}
+				case SETUP:
+					break;
+				case JAM:
+				case LINEUP:
+					if (period_clock) {
+						period_clock += 1;
+					}
+					// fall through
+				case TIMEOUT:
+					if (jam_clock) {
+						jam_clock += 1;
+					}
 			}
-			
+
 			draw();
 		}
 	}
@@ -281,6 +285,3 @@ main(void)
 	}
 	return 0;
 }
-
-
-
