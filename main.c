@@ -180,11 +180,11 @@ update_controller()
 	int inc = 1;
 
 	cur = nesprobe();
+	pressed = (last_val ^ cur) & cur;
 	if (last_val != cur) {
 		last_change = jiffies;
+		last_val = cur;
 	}
-	pressed = (last_val ^ cur) & cur;
-	last_val = cur;
 
 	if ((pressed & BTN_A) && ((state != JAM) || (jam_clock == 0))) {
 		state = JAM;
