@@ -5,10 +5,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-// Make sure JIFFY_uS is going to be an integer and not a float!
-#define JIFFIES_PER_SECOND 100
-#define JIFFY_uS (1000000 / JIFFIES_PER_SECOND)
-
 #define bit(pin, bit, on) pin = (on ? (pin | bit) : (pin & ~bit))
 
 #define mode(on) bit(PORTA, _BV(0), on)

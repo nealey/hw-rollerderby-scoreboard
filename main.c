@@ -133,7 +133,7 @@ draw()
 	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
 		// Blank it out
 		for (clk = 0; clk < 4; clk += 1) {
-			write(0);
+			write(setup_digits[1]);
 		}
 	} else {
 		clk = (abs(period_clock / 10) / 60) * 100;
@@ -254,24 +254,22 @@ loop()
 			PORTB ^= 0xff;
 		}
 
-		if (jiffies == 0) {
-			switch (state) {
-				case SETUP:
-					break;
-				case JAM:
-				case LINEUP:
-					if (period_clock) {
-						period_clock += 1;
-					}
-					// fall through
-				case TIMEOUT:
-					if (jam_clock) {
-						jam_clock += 1;
-					}
-			}
-
-			draw();
+		switch (state) {
+			case SETUP:
+				break;
+			case JAM:
+			case LINEUP:
+				if (period_clock) {
+					period_clock += 1;
+				}
+				// fall through
+			case TIMEOUT:
+				if (jam_clock) {
+					jam_clock += 1;
+				}
 		}
+
+		draw();
 	}
 }
 
