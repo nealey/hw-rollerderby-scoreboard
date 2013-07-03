@@ -115,6 +115,7 @@ draw()
 
 
 	write_num(score_b, 2);
+	write_num(score_a, 2);
 
 	if (state == SETUP) {
 		write(setup_digits[2]);
@@ -126,9 +127,6 @@ draw()
 		clk += abs(jam_clock) % 600;
 		write_num(clk, 4);
 	}
-
-	write_num(score_a, 2);
-
 
 	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
 		// Blank it out
@@ -176,11 +174,15 @@ void
 update_controller()
 {
 	static uint8_t last_val = 0;
+	static uint8_t last_change = 0;
 	uint8_t cur;
 	uint8_t pressed;
 	int inc = 1;
 
 	cur = nesprobe();
+	if (last_val != cur) {
+		last_change = jiffies;
+	}
 	pressed = (last_val ^ cur) & cur;
 	last_val = cur;
 
@@ -199,10 +201,18 @@ update_controller()
 		jam_clock = 1;
 	}
 
-	if (cur & BTN_SELECT) {
-		inc = -1;
+	if ((state == TIMEOUT) || (state == SETUP)) {
+		uint8_t v = pressed;
 
-		// XXX: if in timeout, select digit to adjust
+		if (jiffies - last_change > 10) {
+			v = cur;
+		}			
+		if (v & BTN_UP) {
+			period_clock -= 10;
+		}
+		if (v & BTN_DOWN) {
+			period_clock += 10;
+		}
 	}
 
 	if (pressed & BTN_LEFT) {
@@ -226,7 +236,7 @@ setup()
 {
 	int i;
 
-	// TLC5941 datasheet says you have to do this before DC initialization.
+	// TLC594 datasheet says you have to do this before DC initialization.
 	// In practice it doesn't seem to matter, but what the hey.
 	draw();
 
