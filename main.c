@@ -115,7 +115,6 @@ draw()
 
 
 	write_num(score_b, 2);
-	write_num(score_a, 2);
 
 	if (state == SETUP) {
 		write(setup_digits[2]);
@@ -138,7 +137,13 @@ draw()
 		clk += abs(period_clock / 10) % 60;
 		write_num(clk, 4);
 	}
-
+	
+	write_num(score_a, 2);
+	
+	write_num(jiffies % 10, 1);
+	write_num(jiffies % 10, 1);
+	
+	
 	latch();
 	pulse();
 }

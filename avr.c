@@ -36,6 +36,8 @@ init(void)
 	TCCR1B |= _BV(WGM12);
 	TCCR1B |= _BV(CS11) | _BV(CS10);
 	TIMSK1 |= _BV(OCIE1A);
+	
+	bit(PORTA, _BV(7), true);
 
 	sei();
 }
