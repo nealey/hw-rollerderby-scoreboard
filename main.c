@@ -96,9 +96,15 @@ write_num(uint16_t number, int digits)
 	int i;
 
 	for (i = 0; i < digits; i += 1) {
-		uint16_t n = (number / divisor) % 10;
+		uint16_t n = number / divisor;
+		uint8_t out = seven_segment_digits[n % 10];
+		
+		// Overflow indicator
+		if (n > 9) {
+			out ^= 0x80;
+		}
 
-		write(seven_segment_digits[n]);
+		write(out);
 		divisor *= 10;
 	}
 }
@@ -140,9 +146,7 @@ draw()
 	
 	write_num(score_a, 2);
 	
-	write_num(jiffies % 10, 1);
-	write_num(jiffies % 10, 1);
-	
+	write_num(jiffies % 200, 2);	
 	
 	latch();
 	pulse();
@@ -211,7 +215,7 @@ update_controller()
 
 		if (jiffies - last_change > 10) {
 			v = cur;
-		}			
+		}
 		if (v & BTN_UP) {
 			period_clock -= 10;
 		}
