@@ -92,20 +92,18 @@ write(uint8_t number)
 void
 write_num(uint16_t number, int digits)
 {
-	uint16_t divisor = 1;
 	int i;
 
 	for (i = 0; i < digits; i += 1) {
-		uint16_t n = number / divisor;
-		uint8_t out = seven_segment_digits[n % 10];
+		uint8_t out = seven_segment_digits[number % 10];
 		
 		// Overflow indicator
-		if (n > 9) {
+		if ((i == digits - 1) && (number > 9)) {
 			out ^= 0x80;
 		}
 
 		write(out);
-		divisor *= 10;
+		number /= 10;
 	}
 }
 
