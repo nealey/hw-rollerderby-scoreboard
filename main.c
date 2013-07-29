@@ -9,7 +9,7 @@
 
 // Number of shift registers in your scoreboard
 // If you want scores to go over 199, you need 8
-const int nsr = 6;
+const int nsr = 8;
 
 // 
 // Timing stuff
@@ -62,8 +62,8 @@ const uint8_t setup_digits[] = {
 void
 latch()
 {
-	xlat(true);
-	xlat(false);
+	sltch(true);
+	sltch(false);
 }
 
 void
@@ -82,10 +82,7 @@ write(uint8_t number)
 	// MSB first
 	for (i = 7; i >= 0; i -= 1) {
 		sin(number & (1 << i));
-
-		for (j = 0; j < 12; j += 1) {
-			pulse();
-		}
+		pulse();
 	}
 }
 
@@ -96,10 +93,15 @@ write_num(uint16_t number, int digits)
 
 	for (i = 0; i < digits; i += 1) {
 		uint8_t out = seven_segment_digits[number % 10];
-		
+
 		// Overflow indicator
 		if ((i == digits - 1) && (number > 9)) {
-			out ^= 0x80;
+			// Blink to indicate double-rollover
+			if ((number > 19) && (jiffies % 3 == 0)) {
+				// leave it blank
+			} else {
+				out ^= 0x80;
+			}
 		}
 
 		write(out);
@@ -113,39 +115,51 @@ write_num(uint16_t number, int digits)
 void
 draw()
 {
-	uint16_t clk;
 
-	// XXX testing
+	uint16_t jclk;
+	uint16_t pclk;
+	bool blank = ((state == TIMEOUT) && (jiffies % 8 == 0));
 
+	jclk = (abs(jam_clock / 600) % 10) * 1000;
+	jclk += abs(jam_clock) % 600;
 
+	pclk = (abs(period_clock / 10) / 60) * 100;
+	pclk += abs(period_clock / 10) % 60;
+
+	// Score A
 	write_num(score_b, 2);
 
-	if (state == SETUP) {
+	// Jam clock, least significant half
+	write_num(jclk % 100, 2);
+
+	// Period clock
+	if (blank) {
+		write(0);
+		write(0);
+		write(0);
+		write(0);
+	} else if (state == SETUP) {
 		write(setup_digits[2]);
 		write(setup_digits[1]);
 		write(setup_digits[1]);
 		write(setup_digits[0]);
 	} else {
-		clk = (abs(jam_clock / 600) % 10) * 1000;
-		clk += abs(jam_clock) % 600;
-		write_num(clk, 4);
+		write_num(pclk, 4);
 	}
 
-	if ((state == TIMEOUT) && (jam_clock % 8 == 0)) {
-		// Blank it out
-		for (clk = 0; clk < 4; clk += 1) {
-			write(setup_digits[1]);
-		}
-	} else {
-		clk = (abs(period_clock / 10) / 60) * 100;
-		clk += abs(period_clock / 10) % 60;
-		write_num(clk, 4);
-	}
-	
+	// Jam clock, most significant half
+	write_num(jclk / 100, 2);
+
+	// Score A
 	write_num(score_a, 2);
-	
-	write_num(jiffies % 200, 2);	
-	
+
+	if (false) {
+		int i;
+		for (i = 0; i < 12; i += 1) {
+			write_num(jiffies / 10, 1);
+		}
+	}
+	// Tell chips to start displaying new values 
 	latch();
 	pulse();
 }
@@ -191,6 +205,10 @@ update_controller()
 	if (last_val != cur) {
 		last_change = jiffies;
 		last_val = cur;
+	}
+	// Select means subtract
+	if (cur & BTN_SELECT) {
+		inc = -1;
 	}
 
 	if ((pressed & BTN_A) && ((state != JAM) || (jam_clock == 0))) {
@@ -241,53 +259,42 @@ update_controller()
 void
 setup()
 {
-	int i;
+	// The TLC5941 required some setup.
+	// The TPIC doesn't.
+	// Hooray.
 
-	// TLC594 datasheet says you have to do this before DC initialization.
-	// In practice it doesn't seem to matter, but what the hey.
-	draw();
-
-	// Initialize dot correction logic
-	mode(true);
-	sin(true);
-	for (i = 0; i < nsr * 96; i += 1) {
-		pulse();
-	}
-	latch();
-	mode(false);
+	PORTB = 0xff;
 }
 
 void
 loop()
 {
-	uint32_t i;
+	update_controller();
 
 	if (tick) {
 		tick = false;
 
-		update_controller();
-		
-		if (jiffies % 10 == 0) {
+		if (jiffies % 5 == 0) {
 			PORTB ^= 0xff;
 		}
 
 		switch (state) {
-			case SETUP:
-				break;
-			case JAM:
-			case LINEUP:
-				if (period_clock) {
-					period_clock += 1;
-				}
-				// fall through
-			case TIMEOUT:
-				if (jam_clock) {
-					jam_clock += 1;
-				}
+		case SETUP:
+			break;
+		case JAM:
+		case LINEUP:
+			if (period_clock) {
+				period_clock += 1;
+			}
+			// fall through
+		case TIMEOUT:
+			if (jam_clock) {
+				jam_clock += 1;
+			}
 		}
-
-		draw();
 	}
+
+	draw();
 }
 
 int
