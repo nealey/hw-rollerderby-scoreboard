@@ -36,7 +36,8 @@ enum {
 	SETUP,
 	JAM,
 	LINEUP,
-	TIMEOUT
+	TIMEOUT,
+	KONAMI
 } state = SETUP;
 
 
@@ -50,6 +51,17 @@ enum {
 #define BTN_DOWN _BV(2)
 #define BTN_LEFT _BV(1)
 #define BTN_RIGHT _BV(0)
+
+const uint8_t konami_code[] = {
+	BTN_UP, BTN_UP, BTN_DOWN, BTN_DOWN,
+	BTN_LEFT, BTN_RIGHT, BTN_LEFT, BTN_RIGHT,
+	BTN_B, BTN_A,
+	0
+};
+int konami_pos = 0;
+const uint8_t test_pattern[] = {
+	_BV(2), _BV(3), _BV(4), _BV(5), _BV(6), _BV(1), _BV(0), _BV(7)
+};
 
 const uint8_t seven_segment_digits[] = {
 	0x7b, 0x60, 0x37, 0x76, 0x6c, 0x5e, 0x5f, 0x70, 0x7f, 0x7e
@@ -119,6 +131,19 @@ draw()
 	uint16_t jclk;
 	uint16_t pclk;
 	bool blank = ((state == TIMEOUT) && (jiffies % 8 == 0));
+	
+	// Segments test mode
+	if (KONAMI == state) {
+		int i;
+		
+		for (i = 0; i < 12; i += 1) {
+			write(test_pattern[jiffies % (sizeof test_pattern)]);;
+		}
+		
+		latch();
+		pulse();
+		return;
+	}
 
 	jclk = (abs(jam_clock / 600) % 10) * 1000;
 	jclk += abs(jam_clock) % 600;
@@ -195,7 +220,8 @@ void
 update_controller()
 {
 	static uint8_t last_val = 0;
-	static uint8_t last_change = 0;
+	static uint32_t last_change = 0;
+	static uint32_t last_typematic = 0;
 	uint8_t cur;
 	uint8_t pressed;
 	int inc = 1;
@@ -206,6 +232,19 @@ update_controller()
 		last_change = jiffies;
 		last_val = cur;
 	}
+	
+	if (pressed == konami_code[konami_pos]) {
+		konami_pos += 1;
+	
+		if (konami_code[konami_pos] == 0) {
+			state = KONAMI;
+			konami_pos = 0;
+			return;
+		} else if (konami_pos > 3) {
+			return;
+		}
+	}
+	
 	// Select means subtract
 	if (cur & BTN_SELECT) {
 		inc = -1;
@@ -229,8 +268,9 @@ update_controller()
 	if ((state == TIMEOUT) || (state == SETUP)) {
 		uint8_t v = pressed;
 
-		if (jiffies - last_change > 10) {
+		if ((jiffies - last_change > 10) && (last_typematic < jiffies)) {
 			v = cur;
+			last_typematic = jiffies;
 		}
 		if (v & BTN_UP) {
 			period_clock -= 10;
