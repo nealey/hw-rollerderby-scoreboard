@@ -150,6 +150,24 @@ draw()
 
 	pclk = (abs(period_clock / 10) / 60) * 100;
 	pclk += abs(period_clock / 10) % 60;
+	
+#ifdef DEMO
+	if (jam_clock == 0) {
+		if (state == LINEUP) {
+			state = JAM;
+			jam_clock = jam_duration;
+		} else {
+			state = LINEUP;
+			jam_clock = lineup_duration;
+		}
+	}
+	
+	if (period_clock == 0) {
+		period_clock = - (30 * 60 * 10);
+		jam_clock = jam_duration;
+		state = JAM;
+	}
+#endif
 
 	// Score A
 	write_num(score_b, 2);
