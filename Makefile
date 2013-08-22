@@ -12,7 +12,7 @@ LDFLAGS += -mmcu=$(MCU)
 AVDFLAGS += -p $(MCU)
 AVDFLAGS += -c usbtiny
 
-CLOCK_HZ = 2000000
+CLOCK_HZ = 1600000
 FUSES += -U lfuse:w:0x7f:m
 FUSES += -U hfuse:w:0xdd:m
 FUSES += -U efuse:w:0xff:m
