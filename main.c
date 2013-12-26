@@ -145,8 +145,8 @@ draw()
 		return;
 	}
 
-	jclk = (abs(jam_clock / 600) % 10) * 1000;
-	jclk += abs(jam_clock) % 600;
+	jclk = (abs(jam_clock / 10) / 60) * 100;
+	jclk += abs(jam_clock / 10) % 60;
 
 	pclk = (abs(period_clock / 10) / 60) * 100;
 	pclk += abs(period_clock / 10) % 60;
@@ -170,10 +170,7 @@ draw()
 #endif
 
 	// Score A
-	write_num(score_b, 2);
-
-	// Jam clock, least significant half
-	write_num(jclk % 100, 2);
+	write_num(score_b, 3);
 
 	// Period clock
 	if (blank) {
@@ -190,11 +187,11 @@ draw()
 		write_num(pclk, 4);
 	}
 
-	// Jam clock, most significant half
-	write_num(jclk / 100, 2);
+	// Jam clock
+	write_num(jclk, 3);
 
 	// Score A
-	write_num(score_a, 2);
+	write_num(score_a, 3);
 
 	if (false) {
 		int i;
