@@ -172,6 +172,9 @@ draw()
 	// Score A
 	write_num(score_b, 3);
 
+	// Jam clock
+	write_num(jclk, 3);
+
 	// Period clock
 	if (blank) {
 		write(0);
@@ -186,9 +189,6 @@ draw()
 	} else {
 		write_num(pclk, 4);
 	}
-
-	// Jam clock
-	write_num(jclk, 3);
 
 	// Score A
 	write_num(score_a, 3);
