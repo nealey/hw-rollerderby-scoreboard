@@ -3,6 +3,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "avr.h"
+#include "config.h"
 
 /* Clock must be a multiple of 2MHz or there will be clock drift */
 #define TICK_HZ (CLOCK_HZ / 8 / 64)

@@ -6,10 +6,7 @@
 #include <util/delay.h>
 
 #include "avr.h"
-
-// Number of shift registers in your scoreboard
-// If you want scores to go over 199, you need 8
-const int nsr = 8;
+#include "config.h"
 
 // 
 // Timing stuff
@@ -21,7 +18,7 @@ const int nsr = 8;
 // As long as you unplug your scoreboard once every 10 years or so,
 // you're good.
 // 
-volatile uint32_t jiffies = 0;	// Elapsed time in deciseconds
+volatile uint32_t jiffies = 0;	// Elapsed time in deciseconds (tenths of a second)
 volatile bool tick = false;	// Set high when jiffy clock ticks
 
 
@@ -33,7 +30,7 @@ int16_t jam_duration = -(2 * 60 * 10);
 int16_t lineup_duration = (-30 * 10);
 int16_t jam_clock = 0;
 enum {
-	SETUP,
+	SETUP = 0,
 	JAM,
 	LINEUP,
 	TIMEOUT,
@@ -64,11 +61,19 @@ const uint8_t test_pattern[] = {
 };
 
 const uint8_t seven_segment_digits[] = {
+	// 0 1 2 3 4 5 6 7 8 9
 	0x7b, 0x60, 0x37, 0x76, 0x6c, 0x5e, 0x5f, 0x70, 0x7f, 0x7e
 };
 
 const uint8_t setup_digits[] = {
+	// [ = ]
 	0x1b, 0x12, 0x72
+};
+
+// keyed by state
+const uint8_t indicator[] = {
+	// '' J L T -
+	0x00, 0x63, 0x0b, 0x0f, 0x04
 };
 
 void
@@ -121,60 +126,28 @@ write_num(uint16_t number, int digits)
 	}
 }
 
-/*
- * Update all the digits
- */
-void
-draw()
+uint16_t
+clock_of_jiffies(int16_t jiffies)
 {
+	uint16_t seconds;
+	uint16_t ret;
 
-	uint16_t jclk;
-	uint16_t pclk;
+	// People read "0:00" as the time being out.
+	// Add 0.9 seconds to make the ALU's truncation be a "round up"
+	seconds = (abs(jiffies) + 9) / 10;
+
+	ret = (seconds / 60) * 100;	// Minutes
+	ret += seconds % 60;	// Seconds
+	
+	return ret;
+}
+
+inline uint16_t
+write_pclock()
+{
+	uint16_t pclk = clock_of_jiffies(period_clock);
 	bool blank = ((state == TIMEOUT) && (jiffies % 8 == 0));
 	
-	// Segments test mode
-	if (KONAMI == state) {
-		int i;
-		
-		for (i = 0; i < 12; i += 1) {
-			write(test_pattern[jiffies % (sizeof test_pattern)]);;
-		}
-		
-		latch();
-		pulse();
-		return;
-	}
-
-	jclk = (abs(jam_clock / 10) / 60) * 100;
-	jclk += abs(jam_clock / 10) % 60;
-
-	pclk = (abs(period_clock / 10) / 60) * 100;
-	pclk += abs(period_clock / 10) % 60;
-	
-#ifdef DEMO
-	if (jam_clock == 0) {
-		if (state == LINEUP) {
-			state = JAM;
-			jam_clock = jam_duration;
-		} else {
-			state = LINEUP;
-			jam_clock = lineup_duration;
-		}
-	}
-	
-	if (period_clock == 0) {
-		period_clock = - (30 * 60 * 10);
-		jam_clock = jam_duration;
-		state = JAM;
-	}
-#endif
-
-	// Score A
-	write_num(score_b, 3);
-
-	// Jam clock
-	write_num(jclk, 3);
-
 	// Period clock
 	if (blank) {
 		write(0);
@@ -189,16 +162,47 @@ draw()
 	} else {
 		write_num(pclk, 4);
 	}
+}
 
-	// Score A
-	write_num(score_a, 3);
 
-	if (false) {
+/*
+ * Update all the digits
+ */
+void
+draw()
+{
+	uint16_t jclk = clock_of_jiffies(jam_clock);
+
+	// Segments test mode
+	if (KONAMI == state) {
 		int i;
+
 		for (i = 0; i < 12; i += 1) {
-			write_num(jiffies / 10, 1);
+			write(test_pattern[jiffies % (sizeof test_pattern)]);
 		}
+
+		latch();
+		pulse();
+		return;
 	}
+
+	write_num(score_b, SCORE_DIGITS);
+
+	write_num(jclk, 2);
+#ifdef JAM_SPLIT
+	write_pclock();
+#endif
+	write_num(jclk / 100, JAM_DIGITS - 2);
+#ifdef JAM_INDICATOR
+	write(indicator[state]);
+#endif
+
+#ifndef JAM_SPLIT
+	write_pclock();
+#endif
+
+	write_num(score_a, SCORE_DIGITS);
+
 	// Tell chips to start displaying new values 
 	latch();
 	pulse();
@@ -247,10 +251,10 @@ update_controller()
 		last_change = jiffies;
 		last_val = cur;
 	}
-	
+
 	if (pressed == konami_code[konami_pos]) {
 		konami_pos += 1;
-	
+
 		if (konami_code[konami_pos] == 0) {
 			state = KONAMI;
 			konami_pos = 0;
@@ -259,7 +263,6 @@ update_controller()
 			return;
 		}
 	}
-	
 	// Select means subtract
 	if (cur & BTN_SELECT) {
 		inc = -1;
