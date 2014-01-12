@@ -8,4 +8,12 @@
 #define JAM_INDICATOR 1
 #define JAM_DIGITS 3
 
+// Set these to the PORTA pins you use
+#define SIN 0
+#define SCLK 1
+#define SLTCH 2
+#define NESCLK 3
+#define NESLTCH 4
+#define NESOUT 5
+
 #endif

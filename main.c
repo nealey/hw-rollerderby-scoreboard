@@ -126,6 +126,22 @@ write_num(uint16_t number, int digits)
 	}
 }
 
+uint16_t
+clock_of_jiffies(int16_t jiffies)
+{
+	uint16_t seconds;
+	uint16_t ret;
+
+	// People read "0:00" as the time being out.
+	// Add 0.9 seconds to make the ALU's truncation be a "round up"
+	seconds = (abs(jiffies) + 9) / 10;
+
+	ret = (seconds / 60) * 100;	// Minutes
+	ret += seconds % 60;	// Seconds
+	
+	return ret;
+}
+
 /*
  * Update all the digits
  */
@@ -133,12 +149,12 @@ void
 draw()
 {
 
-	uint16_t jclk;
-	uint16_t pclk;
+	uint16_t jclk = clock_of_jiffies(jam_clock);
+	uint16_t pclk = clock_of_jiffies(period_clock);
 	bool blank = ((state == TIMEOUT) && (jiffies % 8 == 0));
 
 	// Segments test mode
-	if (1 || (KONAMI == state)) {
+	if (KONAMI == state) {
 		int i;
 
 		for (i = 0; i < 12; i += 1) {
@@ -149,30 +165,6 @@ draw()
 		pulse();
 		return;
 	}
-
-	jclk = (abs(jam_clock / 600) % 10) * 1000;
-	jclk += abs(jam_clock) % 600;
-
-	pclk = (abs(period_clock / 10) / 60) * 100;
-	pclk += abs(period_clock / 10) % 60;
-
-#ifdef DEMO
-	if (jam_clock == 0) {
-		if (state == LINEUP) {
-			state = JAM;
-			jam_clock = jam_duration;
-		} else {
-			state = LINEUP;
-			jam_clock = lineup_duration;
-		}
-	}
-
-	if (period_clock == 0) {
-		period_clock = -(30 * 60 * 10);
-		jam_clock = jam_duration;
-		state = JAM;
-	}
-#endif
 
 	// Score A
 	write_num(score_b, SCORE_DIGITS);
@@ -329,7 +321,7 @@ setup()
 void
 loop()
 {
-	// update_controller();
+	update_controller();
 
 	if (tick) {
 		tick = false;
