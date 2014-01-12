@@ -34,7 +34,7 @@ int16_t jam_duration = -(2 * 60 * 10);
 int16_t lineup_duration = (-30 * 10);
 int16_t jam_clock = 0;
 enum {
-	SETUP,
+	SETUP = 0,
 	JAM,
 	LINEUP,
 	TIMEOUT,
@@ -140,9 +140,9 @@ draw()
 	uint16_t jclk;
 	uint16_t pclk;
 	bool blank = ((state == TIMEOUT) && (jiffies % 8 == 0));
-	
+
 	// Segments test mode
-	if (KONAMI == state) {
+	if (1 || (KONAMI == state)) {
 		int i;
 		
 		for (i = 0; i < 12; i += 1) {
@@ -339,7 +339,7 @@ loop()
 	if (tick) {
 		tick = false;
 
-		if (jiffies % 5 == 0) {
+		if (1 && (jiffies % 50 == 0)) {
 			PORTB ^= 0xff;
 		}
 
