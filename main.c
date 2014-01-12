@@ -8,10 +8,6 @@
 #include "avr.h"
 #include "config.h"
 
-// Number of shift registers in your scoreboard
-// If you want scores to go over 199, you need 8
-const int nsr = 8;
-
 // 
 // Timing stuff
 // 
@@ -22,7 +18,7 @@ const int nsr = 8;
 // As long as you unplug your scoreboard once every 10 years or so,
 // you're good.
 // 
-volatile uint32_t jiffies = 0;	// Elapsed time in deciseconds
+volatile uint32_t jiffies = 0;	// Elapsed time in deciseconds (tenths of a second)
 volatile bool tick = false;	// Set high when jiffy clock ticks
 
 
@@ -144,11 +140,11 @@ draw()
 	// Segments test mode
 	if (1 || (KONAMI == state)) {
 		int i;
-		
+
 		for (i = 0; i < 12; i += 1) {
-			write(test_pattern[jiffies % (sizeof test_pattern)]);;
+			write(test_pattern[jiffies % (sizeof test_pattern)]);
 		}
-		
+
 		latch();
 		pulse();
 		return;
@@ -159,7 +155,7 @@ draw()
 
 	pclk = (abs(period_clock / 10) / 60) * 100;
 	pclk += abs(period_clock / 10) % 60;
-	
+
 #ifdef DEMO
 	if (jam_clock == 0) {
 		if (state == LINEUP) {
@@ -170,9 +166,9 @@ draw()
 			jam_clock = lineup_duration;
 		}
 	}
-	
+
 	if (period_clock == 0) {
-		period_clock = - (30 * 60 * 10);
+		period_clock = -(30 * 60 * 10);
 		jam_clock = jam_duration;
 		state = JAM;
 	}
@@ -201,7 +197,7 @@ draw()
 
 	// Jam clock, most significant half
 	write_num(jclk / 100, JAM_DIGITS - 2);
-	
+
 #if JAM_INDICATOR
 	write(indicator[state]);
 #endif
@@ -257,10 +253,10 @@ update_controller()
 		last_change = jiffies;
 		last_val = cur;
 	}
-	
+
 	if (pressed == konami_code[konami_pos]) {
 		konami_pos += 1;
-	
+
 		if (konami_code[konami_pos] == 0) {
 			state = KONAMI;
 			konami_pos = 0;
@@ -269,7 +265,6 @@ update_controller()
 			return;
 		}
 	}
-	
 	// Select means subtract
 	if (cur & BTN_SELECT) {
 		inc = -1;
@@ -334,12 +329,12 @@ setup()
 void
 loop()
 {
-	update_controller();
+	// update_controller();
 
 	if (tick) {
 		tick = false;
 
-		if (1 && (jiffies % 50 == 0)) {
+		if (jiffies % 5 == 0) {
 			PORTB ^= 0xff;
 		}
 
