@@ -6,6 +6,7 @@
 #include <util/delay.h>
 
 #include "avr.h"
+#include "config.h"
 
 // Number of shift registers in your scoreboard
 // If you want scores to go over 199, you need 8
@@ -64,11 +65,19 @@ const uint8_t test_pattern[] = {
 };
 
 const uint8_t seven_segment_digits[] = {
+	// 0 1 2 3 4 5 6 7 8 9
 	0x7b, 0x60, 0x37, 0x76, 0x6c, 0x5e, 0x5f, 0x70, 0x7f, 0x7e
 };
 
 const uint8_t setup_digits[] = {
+	// [ = ]
 	0x1b, 0x12, 0x72
+};
+
+// keyed by state
+const uint8_t indicator[] = {
+	// '' J L T -
+	0x00, 0x63, 0x0b, 0x0f, 0x04
 };
 
 void
@@ -170,7 +179,7 @@ draw()
 #endif
 
 	// Score A
-	write_num(score_b, 2);
+	write_num(score_b, SCORE_DIGITS);
 
 	// Jam clock, least significant half
 	write_num(jclk % 100, 2);
@@ -191,17 +200,15 @@ draw()
 	}
 
 	// Jam clock, most significant half
-	write_num(jclk / 100, 2);
+	write_num(jclk / 100, JAM_DIGITS - 2);
+	
+#if JAM_INDICATOR
+	write(indicator[state]);
+#endif
 
 	// Score A
-	write_num(score_a, 2);
+	write_num(score_a, SCORE_DIGITS);
 
-	if (false) {
-		int i;
-		for (i = 0; i < 12; i += 1) {
-			write_num(jiffies / 10, 1);
-		}
-	}
 	// Tell chips to start displaying new values 
 	latch();
 	pulse();
