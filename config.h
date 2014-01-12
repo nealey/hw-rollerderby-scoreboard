@@ -14,11 +14,11 @@
 //#define JAM_SPLIT
 
 // Set these to the PORTA pins you use
-#define SIN 3
-#define SCLK 4
-#define SLTCH 5
 #define NESCLK 0
 #define NESLTCH 1
 #define NESOUT 2
+#define SIN 3
+#define SCLK 4
+#define SLTCH 5
 
 #endif
