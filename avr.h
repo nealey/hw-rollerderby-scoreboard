@@ -15,6 +15,6 @@
 #define nesltch(on) bit(PORTA, _BV(NESLTCH), on)
 #define nesout() ((PINA & _BV(NESOUT)) << NESOUT)
 
-void init(void);
+void avr_init(void);
 
 #endif

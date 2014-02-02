@@ -30,12 +30,12 @@ int16_t jam_duration = -(2 * 60 * 10);
 int16_t lineup_duration = (-30 * 10);
 int16_t jam_clock = 0;
 enum {
-	SETUP = 0,
+	TIMEOUT = 0,
 	JAM,
 	LINEUP,
-	TIMEOUT,
 	KONAMI
-} state = SETUP;
+} state = TIMEOUT;
+bool setup = true;
 
 
 // NES Controller buttons
@@ -156,11 +156,6 @@ write_pclock()
 		write(0);
 		write(0);
 		write(0);
-	} else if (state == SETUP) {
-		write(setup_digits[2]);
-		write(setup_digits[1]);
-		write(setup_digits[1]);
-		write(setup_digits[0]);
 	} else {
 		write_num(pclk, 4);
 	}
@@ -240,20 +235,19 @@ nesprobe()
 void
 update_controller()
 {
-	static uint8_t last_val = 0;
+	static uint8_t last_pressed = 0;
 	static uint32_t last_change = 0;
-	static uint32_t last_typematic = 0;
-	uint8_t cur;
+	uint8_t held;
 	uint8_t pressed;
 	int inc = 1;
 
-	cur = nesprobe();
-	pressed = (last_val ^ cur) & cur;
-	if (last_val != cur) {
+	held = nesprobe();
+	pressed = (last_pressed ^ held) & held;
+	if (last_pressed != held) {
 		last_change = jiffies;
-		last_val = cur;
-	}
-
+		last_pressed = held;
+	} 
+	
 	if (pressed == konami_code[konami_pos]) {
 		konami_pos += 1;
 
@@ -268,7 +262,7 @@ update_controller()
 		konami_pos = 0;
 	}
 	// Select means subtract
-	if (cur & BTN_SELECT) {
+	if (held & BTN_SELECT) {
 		inc = -1;
 	}
 
@@ -287,27 +281,38 @@ update_controller()
 		jam_clock = 1;
 	}
 
-	if ((state == TIMEOUT) || (state == SETUP)) {
-		uint8_t v = pressed;
+	if ((held & BTN_START) && (state == TIMEOUT)) {
+		int typematic;
 
-		if ((jiffies - last_change > 10) && (last_typematic < jiffies)) {
-			v = cur;
-			last_typematic = jiffies;
+		// Set up typematic acceleration (issue #4)
+		if (pressed & (BTN_UP | BTN_DOWN)) {
+			typematic = 10;
+		} else if (jiffies - last_change < 20) {
+			typematic = 0;
+		} else if (jiffies - last_change < 500) {
+			typematic = 10;
+		} else {
+			typematic = 100;
 		}
-		if (v & BTN_UP) {
-			period_clock -= 10;
+		if (held & BTN_UP) {
+			period_clock -= typematic;
 		}
-		if (v & BTN_DOWN) {
-			period_clock += 10;
+		if (held & BTN_DOWN) {
+			period_clock += typematic;
+		}
+	} else {
+		// Score adjustment and clock adjustment are mutually exclusive (issue #3)
+		if (pressed & BTN_LEFT) {
+			score_a = max(score_a + inc, 0);
+		}
+	
+		if (pressed & BTN_RIGHT) {
+			score_b = max(score_b + inc, 0);
 		}
 	}
-
-	if (pressed & BTN_LEFT) {
-		score_a = max(score_a + inc, 0);
-	}
-
-	if (pressed & BTN_RIGHT) {
-		score_b = max(score_b + inc, 0);
+	
+	if (state != TIMEOUT) {
+		setup = false;
 	}
 }
 
@@ -317,16 +322,6 @@ update_controller()
  *
  */
 
-
-void
-setup()
-{
-	// The TLC5941 required some setup.
-	// The TPIC doesn't.
-	// Hooray.
-
-	PORTB = 0xff;
-}
 
 void
 loop()
@@ -341,8 +336,6 @@ loop()
 		}
 
 		switch (state) {
-		case SETUP:
-			break;
 		case JAM:
 		case LINEUP:
 			if (period_clock) {
@@ -350,7 +343,7 @@ loop()
 			}
 			// fall through
 		case TIMEOUT:
-			if (jam_clock) {
+			if (jam_clock && !setup) {
 				jam_clock += 1;
 			}
 		}
@@ -362,8 +355,7 @@ loop()
 int
 main(void)
 {
-	init();
-	setup();
+	avr_init();
 	for (;;) {
 		loop();
 	}

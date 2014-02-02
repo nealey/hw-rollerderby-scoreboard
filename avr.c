@@ -23,7 +23,7 @@ ISR(TIM1_COMPA_vect)
 }
 
 void
-init(void)
+avr_init(void)
 {
 	int i;
 
@@ -40,6 +40,8 @@ init(void)
 	TIMSK1 |= _BV(OCIE1A);
 	
 	bit(PORTA, _BV(7), true);
+	
+	PORTB = 0xff;
 
 	sei();
 }
