@@ -262,6 +262,8 @@ update_controller()
 		} else if (konami_pos > 3) {
 			return;
 		}
+	} else {
+		konami_pos = 0;
 	}
 	// Select means subtract
 	if (cur & BTN_SELECT) {
