@@ -23,8 +23,8 @@ volatile bool tick = false;	// Set high when jiffy clock ticks
 
 
 // Clocks are in deciseconds
-uint16_t score_a = 0;
-uint16_t score_b = 0;
+int16_t score_a = 0;
+int16_t score_b = 0;
 int16_t period_clock = -(30 * 60 * 10);
 int16_t jam_duration = -(2 * 60 * 10);
 int16_t lineup_duration = (-30 * 10);
@@ -75,6 +75,8 @@ const uint8_t indicator[] = {
 	// '' J L T -
 	0x00, 0x63, 0x0b, 0x0f, 0x04
 };
+
+#define max(a, b) ((a)>(b)?(a):(b))
 
 void
 latch()
@@ -301,11 +303,11 @@ update_controller()
 	}
 
 	if (pressed & BTN_LEFT) {
-		score_a += inc;
+		score_a = max(score_a + inc, 0);
 	}
 
 	if (pressed & BTN_RIGHT) {
-		score_b += inc;
+		score_b = max(score_b + inc, 0);
 	}
 }
 
