@@ -1,8 +1,6 @@
 Outstanding
 -----------
 
-5. Make setup mode less confusing
-6. Allow jam clock adjustments in setup
 7. Unified build with multiple firmware targets
 
 
@@ -13,3 +11,6 @@ Fixed
 2. Konami Code position doesn't reset on non-sequence button
 3. It is too easy to mess up scores when adjusting period clock time
 4. Period clock adjustments take forever
+5. Make setup mode less confusing
+6. Allow jam clock adjustments in setup
+8. Debounce buttons

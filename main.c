@@ -21,14 +21,13 @@
 volatile uint32_t jiffies = 0;	// Elapsed time in deciseconds (tenths of a second)
 volatile bool tick = false;	// Set high when jiffy clock ticks
 
-
 // Clocks are in deciseconds
 int16_t score_a = 0;
 int16_t score_b = 0;
-int16_t period_clock = -(30 * 60 * 10);
-int16_t jam_duration = -(2 * 60 * 10);
-int16_t lineup_duration = (-30 * 10);
-int16_t jam_clock = 0;
+int16_t period_clock = PERIOD_DEFAULT;
+int16_t jam_duration = JAM_DEFAULT;
+int16_t lineup_duration = LINEUP_DEFAULT;
+int16_t jam_clock = JAM_DEFAULT;
 enum {
 	TIMEOUT = 0,
 	JAM,
@@ -65,18 +64,16 @@ const uint8_t seven_segment_digits[] = {
 	0x7b, 0x60, 0x37, 0x76, 0x6c, 0x5e, 0x5f, 0x70, 0x7f, 0x7e
 };
 
-const uint8_t setup_digits[] = {
-	// [ = ]
-	0x1b, 0x12, 0x72
-};
 
 // keyed by state
 const uint8_t indicator[] = {
-	// '' J L T -
-	0x00, 0x63, 0x0b, 0x0f, 0x04
+	// t, J, L, -
+	0x0f, 0x63, 0x0b, 0x04
 };
 
 #define max(a, b) ((a)>(b)?(a):(b))
+#define min(a, b) ((a)<(b)?(a):(b))
+
 
 void
 latch()
@@ -235,18 +232,39 @@ nesprobe()
 void
 update_controller()
 {
-	static uint8_t last_pressed = 0;
+	static uint8_t last_held = 0;
 	static uint32_t last_change = 0;
+	static uint32_t last_typematic = 0;
 	uint8_t held;
 	uint8_t pressed;
+	int typematic = 0;
 	int inc = 1;
 
 	held = nesprobe();
-	pressed = (last_pressed ^ held) & held;
-	if (last_pressed != held) {
+	pressed = (last_held ^ held) & held;
+
+	// Set up typematic acceleration
+	if (last_held != held) {
+		// Debounce
+		if (last_change == jiffies) {
+			return;
+		}
 		last_change = jiffies;
-		last_pressed = held;
-	} 
+		last_typematic = jiffies;
+		last_held = held;
+		typematic = 1;
+	} else if (jiffies > last_typematic) {
+		last_typematic = jiffies;
+		if (jiffies - last_change < 6) {
+			typematic = 0;
+		} else if (jiffies - last_change < 40) {
+			typematic = 1;
+		} else if (jiffies - last_change < 80) {
+			typematic = 10;
+		} else {
+			typematic = 20;
+		}
+	}
 	
 	if (pressed == konami_code[konami_pos]) {
 		konami_pos += 1;
@@ -258,12 +276,20 @@ update_controller()
 		} else if (konami_pos > 3) {
 			return;
 		}
-	} else {
+	} else if (pressed) {
 		konami_pos = 0;
 	}
 	// Select means subtract
 	if (held & BTN_SELECT) {
 		inc = -1;
+	}
+	
+	if (setup && (held & BTN_START) && (pressed & BTN_SELECT)) {
+		jam_duration += 30 * 10;
+		if (jam_duration > -60 * 10) {
+			jam_duration = -120 * 10;
+		}
+		jam_clock = jam_duration;
 	}
 
 	if ((pressed & BTN_A) && ((state != JAM) || (jam_clock == 0))) {
@@ -282,32 +308,25 @@ update_controller()
 	}
 
 	if ((held & BTN_START) && (state == TIMEOUT)) {
-		int typematic;
-
-		// Set up typematic acceleration (issue #4)
-		if (pressed & (BTN_UP | BTN_DOWN)) {
-			typematic = 10;
-		} else if (jiffies - last_change < 20) {
-			typematic = 0;
-		} else if (jiffies - last_change < 500) {
-			typematic = 10;
-		} else {
-			typematic = 100;
-		}
 		if (held & BTN_UP) {
-			period_clock -= typematic;
+			period_clock -= typematic * 10;
 		}
 		if (held & BTN_DOWN) {
-			period_clock += typematic;
+			period_clock += typematic * 10;
 		}
+		
+		period_clock = min(period_clock, 0);
+		period_clock = max(period_clock, -90 * 30 * 10);
 	} else {
-		// Score adjustment and clock adjustment are mutually exclusive (issue #3)
-		if (pressed & BTN_LEFT) {
-			score_a = max(score_a + inc, 0);
+		// Score adjustment and clock adjustment are mutually exclusive
+		if (held & BTN_LEFT) {
+			score_a += typematic * inc;
+			score_a = max(score_a, 0);
 		}
 	
-		if (pressed & BTN_RIGHT) {
-			score_b = max(score_b + inc, 0);
+		if (held & BTN_RIGHT) {
+			score_b += typematic * inc;
+			score_b = max(score_b, 0);
 		}
 	}
 	
