@@ -1,7 +1,6 @@
 Outstanding
 -----------
 
-7. Unified build with multiple firmware targets
 
 
 Fixed
@@ -13,4 +12,5 @@ Fixed
 4. Period clock adjustments take forever
 5. Make setup mode less confusing
 6. Allow jam clock adjustments in setup
+7. Unified build with multiple firmware targets
 8. Debounce buttons

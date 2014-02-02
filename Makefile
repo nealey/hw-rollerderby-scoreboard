@@ -1,4 +1,7 @@
-PROG = main
+TARGETS += scoreboard-neale.hex
+TARGETS += scoreboard-susan1.hex
+TARGETS += scoreboard-susan2.hex
+TARGETS += scoreboard-std.hex
 
 MCU = attiny84
 
@@ -9,34 +12,32 @@ CFLAGS += -w
 
 LDFLAGS += -mmcu=$(MCU)
 
-AVDFLAGS += -p $(MCU)
-AVDFLAGS += -c usbtiny
+all: $(TARGETS)
 
-FUSES += -U lfuse:w:0x7f:m
-FUSES += -U hfuse:w:0xdd:m
-FUSES += -U efuse:w:0xff:m
+scoreboard-%.elf: main.c avr.c config.h avr.h
+	$(CC) $(CFLAGS) -DVARIANT=$* $(LDFLAGS) -o $@ avr.c main.c
 
-upload: .upload
-
-.upload: $(PROG).hex
-	avrdude $(AVDFLAGS) -U flash:w:$<
-	touch $@
-
-fuses:
-	avrdude $(AVDFLAGS) $(FUSES)
-	
-main: main.o avr.o
-
-blink: blink.o avr.o
-
-avr.o: avr.c config.h
-
-%.hex: %
+%.hex: %.elf
 	avr-objcopy -O ihex -R .eeprom -R .fuse -R .lock -R .signature $< $@
 
 clean:
-	rm -f $(PROG) *.o *.hex .upload
+	rm -f *.elf *.o *.hex .upload
 
 
 
+##
+## Helpful targets for development
+##
+
+fuses: AVDFLAGS += -p $(MCU)
+fuses: AVDFLAGS += -c usbtiny
+
+upload: scoreboard-neale.hex
+	avrdude $(AVDFLAGS) -U flash:w:$<
+
+fuses: FUSES += -U lfuse:w:0x7f:m
+fuses: FUSES += -U hfuse:w:0xdd:m
+fuses: FUSES += -U efuse:w:0xff:m
+fuses:
+	avrdude $(AVDFLAGS) $(FUSES)
 	
