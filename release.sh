@@ -1,9 +1,9 @@
-#! /bin/sh
+#! /bin/sh -e
 
-now=$(date +%Y%m%d)
+version=$(git describe --tags --exact-match)
 
 make all
 mkdir -p bin
 for i in *.hex; do
-	cp $i bin/scoreboard-$now-${i#scoreboard-}
+	cp $i bin/scoreboard-$version-${i#scoreboard-}
 done
