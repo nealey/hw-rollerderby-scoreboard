@@ -29,10 +29,12 @@ clean:
 ## Helpful targets for development
 ##
 
-fuses: AVDFLAGS += -p $(MCU)
-fuses: AVDFLAGS += -c usbtiny
+VARIANT = neale
 
-upload: scoreboard-neale.hex
+AVDFLAGS += -p $(MCU)
+AVDFLAGS += -c usbtiny
+
+upload: scoreboard-$(VARIANT).hex
 	avrdude $(AVDFLAGS) -U flash:w:$<
 
 fuses: FUSES += -U lfuse:w:0x7f:m
