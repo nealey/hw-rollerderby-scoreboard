@@ -39,6 +39,10 @@ avr_init(void)
 	TCCR1B |= _BV(CS11) | _BV(CS10); // prescale: clk_io / 64
 	TIMSK1 |= _BV(OCIE1A);
 	
+	// Pull-up NES data line
+	bit(PORTA, _BV(NESOUT), true);
+
+	// Turn on Power Supply
 	bit(PORTA, _BV(7), true);
 	
 	PORTB = 0xff;

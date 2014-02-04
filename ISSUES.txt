@@ -14,3 +14,4 @@ Fixed
 6. Allow jam clock adjustments in setup
 7. Unified build with multiple firmware targets
 8. Debounce buttons
+9. Pull-up NES data to prevent going apeshit when you unplug the controller
