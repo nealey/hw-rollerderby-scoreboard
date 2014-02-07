@@ -8,6 +8,10 @@
 #define JAM_DEFAULT (-2 * 60 * 10)
 #define PERIOD_DEFAULT (-30 * 60 * 10)
 
+// TPIC uses weird pin names
+#define SRCK SCLK
+#define RCK SLTCH
+
 // Set these to the PORTA pins you use
 #define NESCLK 0
 #define NESLTCH 1
@@ -18,7 +22,11 @@
 
 #define JAM_DIGITS 3
 
-
+#define std 0
+#define neale 1
+#define susan1 2
+#define susan2 3
+#define robbie 3
 
 #if VARIANT == neale
 //
@@ -40,12 +48,12 @@
 #undef SCLK
 #undef SLTCH
 
-#define NESCLK 3
-#define NESLTCH 4
-#define NESOUT 5
 #define SIN 0
 #define SCLK 1
 #define SLTCH 2
+#define NESCLK 3
+#define NESLTCH 4
+#define NESOUT 5
 
 
 
@@ -72,7 +80,6 @@
 #define SCORE_DIGITS 3
 
 
-
 #else
 //
 // Default variant
@@ -82,13 +89,11 @@
 //
 
 
-
 #define SCORE_DIGITS 3
 #define JAM_SPLIT
 
 
 #endif
-
 
 
 #endif
