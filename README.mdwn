@@ -35,7 +35,7 @@ Resources
 * [Discussion Group](https://groups.google.com/forum/#!forum/scoreboard-builders) for help from others who've built or are building one.
 * [Google Drive Folder](https://drive.google.com/folderview?id=0BzovkpI6mzWQNFc4eGN0aGoyTGM&usp=sharing) with
   schematics, documentation, and firmware releases.
-* [Firmware Source Code](http://woozle.org/neale/g.cgi/avr/scoreboard)
+* [Firmware Source Code](https://woozle.org/neale/g.cgi/derby/hw-scoreboard)
 
 
 About Me
